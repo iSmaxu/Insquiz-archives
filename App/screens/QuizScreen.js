@@ -1,93 +1,66 @@
 // screens/QuizScreen.js
-import React, { useContext, useState, useEffect } from 'react';
-import { View } from 'react-native';
-import { QuizContext } from '../context/QuizContext';
-import QuestionCard from '../components/QuestionCard';
-import { Button, Text, ActivityIndicator } from 'react-native-paper';
-import ResultModal from '../components/ResultModal';
+import React, { useEffect, useState } from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { loadQuestions } from "../services/quizService";
+import QuestionCard from "../components/QuestionCard";
 
-export default function QuizScreen({ navigation }) {
-  const { quizQuestions, loading, finishQuiz } = useContext(QuizContext);
+export default function QuizScreen() {
+  const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [showResult, setShowResult] = useState(false);
-  const [current, setCurrent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    setIndex(0);
-    setScore(0);
-    setShowResult(false);
-  }, [quizQuestions]);
+    (async () => {
+      const q = await loadQuestions();
+      setQuestions(q.lectura || []);
+      setLoading(false);
+    })();
+  }, []);
 
-  useEffect(() => {
-    if (quizQuestions && quizQuestions.length > 0) {
-      setCurrent(quizQuestions[index]);
-    } else {
-      setCurrent(null);
-    }
-  }, [quizQuestions, index]);
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9f9ff' }}>
-        <ActivityIndicator animating size="large" />
-      </View>
-    );
-  }
-
-  if (!current) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9f9ff' }}>
-        <Text>No hay preguntas disponibles.</Text>
-        <Button mode="contained" onPress={() => navigation.goBack()}>Volver</Button>
-      </View>
-    );
-  }
-
-  const handleAnswer = (selectedOption) => {
-    // This is called once per question by QuestionCard
-    const correct = selectedOption === current.answer;
-    if (correct) setScore(prev => prev + 1);
-
-    const next = index + 1;
-    if (next < quizQuestions.length) {
-      setIndex(next);
-    } else {
-      // end quiz
-      setShowResult(true);
-      // cuando se cierra el modal (volver al home) puede llamarse finishQuiz; o lo llamamos aquí ahora:
-      // preferimos llamar finishQuiz cuando usuario vuelve al home (en ResultScreen) para no bloquear modal
-    }
+  const handleAnswer = () => {
+    if (index + 1 < questions.length) setIndex(index + 1);
+    else setFinished(true);
   };
 
-  const handleModalDismiss = async () => {
-    setShowResult(false);
-    // llamar finishQuiz para actualizar banco remoto automáticamente
-    try { await finishQuiz(); } catch (e) { console.warn(e); }
-    navigation.navigate('Home');
-  };
+  if (loading)
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#000" />
+        <Text>Cargando preguntas...</Text>
+      </View>
+    );
+
+  if (finished)
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>🎉 ¡Quiz completado!</Text>
+        <Text>Preguntas totales: {questions.length}</Text>
+      </View>
+    );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f9f9ff' }}>
-      <QuestionCard item={current} onAnswer={handleAnswer} />
-      <View style={{ padding: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)' }}>
-        <Text style={{ fontWeight: 'bold', color: '#333' }}>
-          Pregunta {index + 1} / {quizQuestions.length}
-        </Text>
-      </View>
-
-      <ResultModal
-        visible={showResult}
-        onDismiss={handleModalDismiss}
-        score={score}
-        total={quizQuestions.length}
-        onRestart={() => {
-          setIndex(0);
-          setScore(0);
-          setShowResult(false);
-        }}
+    <View style={styles.container}>
+      <QuestionCard
+        question={questions[index]}
+        index={index}
+        total={questions.length}
+        onAnswer={handleAnswer}
       />
     </View>
   );
 }
-// End of App/screens/QuizScreen.js
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+});
