@@ -1,50 +1,71 @@
-import React, { useEffect } from "react";
-import * as Notifications from "expo-notifications";
-import { Provider as PaperProvider } from "react-native-paper";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Provider as PaperProvider } from "react-native-paper";
+import { createDrawerNavigator } from "@react-navigation/drawer";
+import { createStackNavigator } from "@react-navigation/stack";
+import { Ionicons } from "@expo/vector-icons";
+
+import LicenseGate from "./App/components/LicenseGate";
 import { QuizProvider } from "./App/context/QuizContext";
+
 import HomeScreen from "./App/screens/HomeScreen";
 import QuizScreen from "./App/screens/QuizScreen";
-import ResultScreen from "./App/screens/ResultScreen";
-import { StatusBar } from "expo-status-bar";
-import LicenseGate from "./App/components/LicenseGate";
+import RealSimScreen from "./App/screens/RealSimScreen";
+import RealSimReviewScreen from "./App/screens/RealSimReviewScreen";
+import AchievementsScreen from "./App/screens/AchievementsScreen";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+const Drawer = createDrawerNavigator();
+const Stack = createStackNavigator();
 
-const Stack = createNativeStackNavigator();
+function DrawerNavigator() {
+  return (
+    <Drawer.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: "#6a0dad" },
+        headerTintColor: "#fff",
+        drawerActiveTintColor: "#6a0dad",
+        drawerInactiveTintColor: "#555",
+      }}
+    >
+      <Drawer.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          title: "Inicio",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Achievements"
+        component={AchievementsScreen}
+        options={{
+          title: "Logros",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="trophy-outline" color={color} size={size} />
+          ),
+        }}
+      />
+    </Drawer.Navigator>
+  );
+}
 
 export default function App() {
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log("📲 Notificación recibida:", notification);
-    });
-    return () => subscription.remove();
-  }, []);
-
   return (
-    <PaperProvider>
+    <LicenseGate>
       <QuizProvider>
-        <LicenseGate>
+        <PaperProvider>
           <NavigationContainer>
-            <Stack.Navigator
-              initialRouteName="Home"
-              screenOptions={{ headerShown: false }}
-            >
-              <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Root" component={DrawerNavigator} />
               <Stack.Screen name="Quiz" component={QuizScreen} />
-              <Stack.Screen name="Result" component={ResultScreen} />
+              <Stack.Screen name="RealSim" component={RealSimScreen} />
+              <Stack.Screen name="RealSimReview" component={RealSimReviewScreen} />
             </Stack.Navigator>
           </NavigationContainer>
-        </LicenseGate>
-        <StatusBar style="light" />
+        </PaperProvider>
       </QuizProvider>
-    </PaperProvider>
+    </LicenseGate>
   );
 }
