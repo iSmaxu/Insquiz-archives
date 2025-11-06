@@ -1,204 +1,339 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { ProgressBar } from "react-native-paper";
-import QuestionCard from "../components/QuestionCard";
-import { saveProgress } from "../services/statsService";
-import { getQuestions } from "../services/quizService";
+// ==========================================================
+// INSQUIZ - Simulacro Real (con contextos + SafeAreaView)
+// ==========================================================
+import React, { useEffect, useState } from "react";
 import {
-  saveSimulacroProgress,
-  getSimulacroProgress,
-  clearSimulacroProgress,
-} from "../services/realSimProgressService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  SafeAreaView,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { getSimulacroReal, TIEMPO_POR_PREGUNTA } from "../services/realSimService";
+import { saveQuizResult } from "../services/resultService";
+import * as Animatable from "react-native-animatable";
+
+// ✅ datasets de contexto
+import textos_lectura from "../data/textos_lectura.json";
+import textos_matematicas from "../data/textos_matematicas.json";
+import textos_ciencias_sociales from "../data/textos_ciencias_sociales.json";
+import textos_ciencias_naturales from "../data/textos_ciencias_naturales.json";
+import textos_ingles from "../data/textos_ingles.json";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function RealSimScreen({ navigation }) {
   const [preguntas, setPreguntas] = useState([]);
-  const [current, setCurrent] = useState(0);
-  const [remainingTime, setRemainingTime] = useState(150);
-  const [finished, setFinished] = useState(false);
-  const [puntaje, setPuntaje] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const timerRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [score, setScore] = useState(0);
+  const [showJust, setShowJust] = useState(false);
+  const [tiempoRestante, setTiempoRestante] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [contextoReal, setContextoReal] = useState({ title: "", text: "" });
 
+  // ==========================================================
+  // 🔹 Cargar preguntas del simulacro
+  // ==========================================================
   useEffect(() => {
-    (async () => {
-      const saved = await getSimulacroProgress();
-      if (saved && saved.preguntas?.length) {
-        Alert.alert(
-          "Continuar simulacro",
-          "Tienes un simulacro guardado. ¿Deseas continuar desde donde lo dejaste?",
-          [
-            { text: "No", style: "cancel", onPress: () => cargarPreguntas() },
-            { text: "Sí", onPress: () => restaurarSimulacro(saved) },
-          ]
-        );
-      } else {
-        cargarPreguntas();
-      }
-    })();
+    const qs = getSimulacroReal();
+    if (qs && qs.length > 0) {
+      setPreguntas(qs);
+      setTiempoRestante(qs.length * TIEMPO_POR_PREGUNTA);
+      setLoading(false);
+    } else {
+      console.error("❌ No se pudieron cargar preguntas del simulacro.");
+      setLoading(false);
+    }
   }, []);
 
-  async function cargarPreguntas() {
-    try {
-      const all = await getQuestions("real");
-      const formatted = all.map((q) => ({
-        ...q,
-        userAnswer: null,
-        isCorrect: false,
-      }));
-      setPreguntas(formatted);
-      setLoaded(true);
-    } catch (e) {
-      console.error("Error cargando preguntas:", e);
-    }
-  }
-
-  function restaurarSimulacro(saved) {
-    setPreguntas(saved.preguntas);
-    setCurrent(saved.current);
-    setRemainingTime(saved.remainingTime);
-    setFinished(saved.finished);
-    setPuntaje(saved.puntaje);
-    setLoaded(true);
-  }
-
+  // ==========================================================
+  // 🔹 Cronómetro global
+  // ==========================================================
   useEffect(() => {
-    if (!preguntas.length || finished) return;
-    timerRef.current = setInterval(() => {
-      setRemainingTime((t) => {
-        if (t <= 1) {
-          handleNext(false);
-          return 150;
-        }
-        return t - 1;
-      });
+    if (loading || tiempoRestante <= 0) return;
+    const timer = setInterval(() => {
+      setTiempoRestante((t) => (t > 0 ? t - 1 : 0));
     }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [current, preguntas, finished]);
+    return () => clearInterval(timer);
+  }, [loading, tiempoRestante]);
 
-  // Auto guardado cada 10 s
+  // ==========================================================
+  // 🔹 Buscar contexto
+  // ==========================================================
   useEffect(() => {
-    if (!preguntas.length || finished) return;
-    const autosave = setInterval(() => {
-      saveSimulacroProgress({ preguntas, current, remainingTime, finished, puntaje });
-    }, 10000);
-    return () => clearInterval(autosave);
-  }, [preguntas, current, remainingTime, finished, puntaje]);
+    if (!preguntas.length) return;
+    const pregunta = preguntas[index];
+    if (!pregunta) return;
 
-  async function handleNext(respondida = true, correcta = false, skill = null, userAnswer = null) {
-    clearInterval(timerRef.current);
-    setRemainingTime(150);
+    const rawContext = (pregunta.context || "").trim();
+    const id = (pregunta.id || "").toUpperCase();
+    const prefix = id.split("-")[0];
 
-    if (respondida && skill) {
-      await saveProgress(skill, correcta);
+    let dataset = [];
+    switch (prefix) {
+      case "LQ":
+      case "LE":
+        dataset = textos_lectura;
+        break;
+      case "MT":
+        dataset = textos_matematicas;
+        break;
+      case "CS":
+        dataset = textos_ciencias_sociales;
+        break;
+      case "CN":
+        dataset = textos_ciencias_naturales;
+        break;
+      case "EN":
+        dataset = textos_ingles;
+        break;
+      default:
+        dataset = [];
     }
 
-    // Guarda la respuesta del usuario en la pregunta actual
-    const updated = [...preguntas];
-    updated[current] = {
-      ...updated[current],
-      userAnswer,
-      isCorrect: correcta,
-    };
-    setPreguntas(updated);
+    const found = dataset.find(
+      (ctx) =>
+        ctx.context_title?.toLowerCase().includes(rawContext.toLowerCase()) ||
+        ctx.context_text?.toLowerCase().includes(rawContext.toLowerCase())
+    );
 
-    if (current + 1 < preguntas.length) {
-      setCurrent(current + 1);
+    if (found) {
+      setContextoReal({
+        title: found.context_title || "Contexto",
+        text: found.context_text || "",
+      });
     } else {
-      await finalizarSimulacro(updated);
+      setContextoReal({ title: "", text: "" });
     }
-  }
+    setExpanded(false);
+  }, [index, preguntas]);
 
-  async function finalizarSimulacro(preguntasFinales) {
-    setFinished(true);
-    clearInterval(timerRef.current);
-    await clearSimulacroProgress();
+  // ==========================================================
+  // 🔹 Formato de tiempo
+  // ==========================================================
+  const formatTime = (sec) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
-    // Guardar para revisión
-    await AsyncStorage.setItem("simulacroReview", JSON.stringify(preguntasFinales));
+  // ==========================================================
+  // 🔹 Lógica principal
+  // ==========================================================
+  const pregunta = preguntas[index];
 
-    const correctas = preguntasFinales.filter((q) => q.isCorrect).length;
-    const total = preguntasFinales.length;
-    const porcentaje = total ? correctas / total : 0;
-    const score = Math.round(300 + (porcentaje - 0.5) * 400);
-    setPuntaje(Math.max(0, Math.min(score, 500)));
-  }
+  const handleSelect = (opt) => {
+    if (selected) return;
+    setSelected(opt);
+    if (opt.trim().startsWith(pregunta.answer?.trim())) setScore((s) => s + 1);
+    setShowJust(true);
+  };
 
-  if (!loaded) {
+  const siguiente = () => {
+    if (index + 1 < preguntas.length) {
+      setSelected(null);
+      setShowJust(false);
+      setExpanded(false);
+      setIndex(index + 1);
+    } else {
+      terminarSimulacro();
+    }
+  };
+
+  const terminarSimulacro = async () => {
+    const total = preguntas?.length || 1;
+    const porcentaje = (score / total) * 100;
+    const scaledScore = Math.round((score / total) * 500);
+
+    await saveQuizResult({
+      area: "Simulacro Real",
+      score,
+      total,
+      scaledScore,
+      percentage: Math.round(porcentaje),
+      mode: "real",
+      date: new Date().toISOString(),
+    });
+
+    navigation.navigate("Result", { score, total, area: "Simulacro Real" });
+  };
+
+  // ==========================================================
+  // 🔹 Render
+  // ==========================================================
+  if (loading)
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Cargando simulacro...</Text>
+        <ActivityIndicator size="large" color="#6a0dad" />
+        <Text style={styles.loading}>Cargando Simulacro Real...</Text>
       </View>
     );
-  }
 
-  if (finished) {
+  if (!pregunta)
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>🎯 Simulacro finalizado</Text>
-        <Text style={styles.result}>
-          Puntaje estimado: <Text style={styles.highlight}>{puntaje}/500</Text>
-        </Text>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#6a0dad" }]}
-          onPress={() => navigation.navigate("RealSimReview")}
-        >
-          <Text style={styles.buttonText}>Ver revisión detallada</Text>
-        </TouchableOpacity>
+        <Text style={styles.loading}>No hay preguntas disponibles.</Text>
       </View>
     );
-  }
-
-  const currentQuestion = preguntas[current];
-  const progreso = (current + 1) / preguntas.length;
-  const minutos = Math.floor(remainingTime / 60);
-  const segundos = (remainingTime % 60).toString().padStart(2, "0");
 
   return (
-    <View style={styles.container}>
-      <View style={styles.timerBox}>
-        <Text style={styles.timerText}>⏱️ {minutos}:{segundos}</Text>
-        <ProgressBar
-          progress={remainingTime / 150}
-          color={remainingTime < 20 ? "#e53935" : "#6a0dad"}
-          style={{ height: 6, borderRadius: 8 }}
-        />
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#4A148C" }}>
+      <LinearGradient colors={["#4A148C", "#b40000"]} style={{ flex: 1 }}>
+        {/* Timer seguro dentro del SafeArea */}
+        <View style={styles.timerBox}>
+          <Text style={styles.timerText}>⏱ {formatTime(tiempoRestante)}</Text>
+        </View>
 
-      <QuestionCard
-        question={currentQuestion}
-        index={current}
-        total={preguntas.length}
-        bankStatus="online"
-        onNext={(isCorrect, selected) =>
-          handleNext(true, isCorrect, currentQuestion.skill || "General", selected)
-        }
-      />
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.header}>
+            Pregunta {index + 1} / {preguntas.length}
+          </Text>
 
-      <View style={styles.footer}>
-        <Text style={styles.progress}>
-          Pregunta {current + 1} / {preguntas.length}
-        </Text>
-        <ProgressBar
-          progress={progreso}
-          color="#6a0dad"
-          style={{ height: 8, borderRadius: 8 }}
-        />
-      </View>
-    </View>
+          <Animatable.View animation="fadeInUp" duration={400} style={styles.card}>
+            {/* CONTEXTO */}
+            {contextoReal.text && contextoReal.text.trim().length > 10 && (
+              <LinearGradient
+                colors={["#f3e5f5cc", "#ffffffee"]}
+                style={styles.contextBox}
+              >
+                <Text style={styles.contextTitle}>
+                  {contextoReal.title || "Contexto"}
+                </Text>
+                <Animatable.View
+                  animation={expanded ? "fadeInDown" : "fadeInUp"}
+                  duration={300}
+                >
+                  <Text
+                    style={styles.contextText}
+                    numberOfLines={expanded ? undefined : 5}
+                    ellipsizeMode="tail"
+                  >
+                    {contextoReal.text}
+                  </Text>
+                </Animatable.View>
+                {contextoReal.text.length > 250 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      setExpanded(!expanded);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.expandButton}>
+                      {expanded ? "▲ Ver menos" : "▼ Ver más"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </LinearGradient>
+            )}
+
+            {/* PREGUNTA */}
+            <Text style={styles.question}>{pregunta.question}</Text>
+
+            {/* OPCIONES */}
+            {(pregunta.options || []).map((opt, i) => {
+              const isSelected = selected === opt;
+              const isCorrect = opt.trim().startsWith(pregunta.answer?.trim());
+              let bg = "#fff",
+                border = "#ccc",
+                color = "#333";
+
+              if (selected) {
+                if (isSelected && isCorrect) {
+                  bg = "#4caf50";
+                  border = "#4caf50";
+                  color = "#fff";
+                } else if (isSelected && !isCorrect) {
+                  bg = "#f44336";
+                  border = "#f44336";
+                  color = "#fff";
+                } else if (isCorrect) {
+                  bg = "#81c784";
+                  border = "#81c784";
+                  color = "#fff";
+                }
+              }
+
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.option, { backgroundColor: bg, borderColor: border }]}
+                  onPress={() => handleSelect(opt)}
+                  disabled={!!selected}
+                >
+                  <Text style={[styles.optionText, { color }]}>{opt}</Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* BOTÓN SIGUIENTE */}
+            {selected && (
+              <TouchableOpacity style={styles.nextBtn} onPress={siguiente}>
+                <LinearGradient colors={["#8e24aa", "#6a0dad"]} style={styles.btnGrad}>
+                  <Text style={styles.btnText}>
+                    {index + 1 < preguntas.length ? "Siguiente ➜" : "Finalizar"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </Animatable.View>
+        </ScrollView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
+// ==========================================================
+// 🎨 ESTILOS
+// ==========================================================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 15 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-  title: { fontSize: 22, fontWeight: "bold", color: "#6a0dad", marginBottom: 10 },
-  result: { fontSize: 18, color: "#333", textAlign: "center", marginBottom: 15 },
-  highlight: { color: "#6a0dad", fontWeight: "bold" },
-  timerBox: { marginBottom: 10, alignItems: "center" },
-  timerText: { fontSize: 18, color: "#333", fontWeight: "bold" },
-  footer: { marginTop: 10 },
-  progress: { textAlign: "center", marginTop: 6, color: "#444" },
-  button: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  container: { flexGrow: 1, padding: 20 },
+  timerBox: {
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  timerText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  header: { textAlign: "center", color: "#fff", fontWeight: "800", fontSize: 20 },
+  card: { backgroundColor: "#fff", borderRadius: 16, padding: 18, marginTop: 20 },
+  contextBox: { borderRadius: 12, padding: 14, marginBottom: 15 },
+  contextTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#6a0dad",
+    marginBottom: 6,
+  },
+  contextText: {
+    fontSize: 15,
+    color: "#333",
+    lineHeight: 22,
+    textAlign: "justify",
+  },
+  expandButton: {
+    textAlign: "center",
+    color: "#6a0dad",
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  question: { fontSize: 18, fontWeight: "700", marginVertical: 15 },
+  option: { borderWidth: 1.3, borderRadius: 12, padding: 12, marginBottom: 10 },
+  optionText: { fontSize: 16, fontWeight: "500" },
+  nextBtn: { marginTop: 20, borderRadius: 10, overflow: "hidden" },
+  btnGrad: { paddingVertical: 14, alignItems: "center" },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loading: { color: "#333", fontSize: 18, marginTop: 10 },
 });

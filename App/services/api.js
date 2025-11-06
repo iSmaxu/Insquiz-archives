@@ -1,6 +1,6 @@
 // services/api.js
 export async function fetchRemoteQuestions() {
-  const url = 'https://gist.githubusercontent.com/iSmaxu/068371d31aa27ce61bb2d5aa28097d59/raw/155421e62a2b698a2b72122630d3fe5c9912fd12/gistfile1.txt';
+  const url = 'https://gist.githubusercontent.com/iSmaxu/6a53393c9a65d2985de466a5e359cbbd/raw/8bd5568f747e316e8434b4d28a488b88d2ae38f9/gistfile1.txt';
 
   try {
     const response = await fetch(url, { cache: 'no-cache' });

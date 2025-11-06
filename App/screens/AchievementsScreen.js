@@ -3,12 +3,14 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { getStats, resetStats } from "../services/statsService";
 import { ProgressBar } from "react-native-paper";
+import { useNavigation } from "@react-navigation/native";
 
 /**
  * Muestra estadísticas generales y por skill
  */
 export default function AchievementsScreen() {
   const [stats, setStats] = useState(null);
+  const navigation = useNavigation();
 
   useEffect(() => {
     (async () => {
@@ -24,6 +26,13 @@ export default function AchievementsScreen() {
         <Text style={styles.subtitle}>
           Completa algunos simulacros para ver tus estadísticas aquí.
         </Text>
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: "#6a0dad", marginTop: 25 }]}
+          onPress={() => navigation.navigate("Home")}
+        >
+          <Text style={styles.buttonText}>Volver al inicio</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -45,7 +54,7 @@ export default function AchievementsScreen() {
       : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
       <Text style={styles.title}>🏅 Tus Logros</Text>
 
       <View style={styles.card}>
@@ -95,6 +104,13 @@ export default function AchievementsScreen() {
       >
         <Text style={styles.buttonText}>Reiniciar estadísticas</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: "#999", marginTop: 10 }]}
+        onPress={() => navigation.navigate("Home")}
+      >
+        <Text style={styles.buttonText}>Volver al inicio</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -110,6 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+    paddingHorizontal: 20,
   },
   title: {
     fontSize: 24,

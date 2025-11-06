@@ -1,135 +1,102 @@
 // App/screens/HomeScreen.js
+// ==========================================================
+// INSQUIZ - Home Principal
+// ==========================================================
+// Muestra logo, nombre de usuario (opcional), botón de práctica
+// y botones adicionales para simulacro o logros.
+// ==========================================================
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export default function HomeScreen() {
-  const navigation = useNavigation();
-
+export default function HomeScreen({ navigation }) {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>🎓 Bienvenido a InsQUIZ</Text>
-      <Text style={styles.subtitle}>
-        Entrena tus habilidades, mide tu progreso y alcanza tu máximo puntaje ICFES.
-      </Text>
+    <LinearGradient colors={["#4A148C", "#b40000"]} style={styles.container}>
+      <View style={styles.header}>
 
-      <Image
-        source={{
-          uri: "https://cdn-icons-png.flaticon.com/512/906/906175.png",
-        }}
-        style={styles.banner}
-      />
+        <Text style={styles.title}>InsQUIZ</Text>
+        <Text style={styles.subtitle}>Prepárate para el ICFES de forma inteligente</Text>
+        <Text style={styles.subtitle}>Mejora tu capacidad de compresion de textos</Text>
+      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Modos disponibles</Text>
-
+      <View style={styles.buttons}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#6a0dad" }]}
-          onPress={() => navigation.navigate("Quiz")}
+          style={styles.mainButton}
+          onPress={() => navigation.navigate("PracticeMenu")}
         >
-          <Text style={styles.buttonText}>🧠 Modo Práctica</Text>
+          <LinearGradient
+            colors={["#8e24aa", "#6a0dad"]}
+            style={styles.gradientButton}
+          >
+            <MaterialCommunityIcons name="book-open-page-variant" size={28} color="#fff" />
+            <Text style={styles.buttonText}>Modo práctica</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#4caf50" }]}
+          style={styles.secondaryButton}
           onPress={() => navigation.navigate("RealSim")}
         >
-          <Text style={styles.buttonText}>🎯 Simulacro Real (400 preguntas)</Text>
+          <MaterialCommunityIcons name="target" size={26} color="#fff" />
+          <Text style={styles.secondaryText}>Simulacro real</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#0288d1" }]}
+          style={styles.secondaryButton}
           onPress={() => navigation.navigate("Achievements")}
         >
-          <Text style={styles.buttonText}>🏅 Mis Logros y Estadísticas</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#9c27b0" }]}
-          onPress={() => navigation.navigate("RealSimReview")}
-        >
-          <Text style={styles.buttonText}>📘 Revisar Último Simulacro</Text>
+          <MaterialCommunityIcons name="trophy" size={26} color="#fff" />
+          <Text style={styles.secondaryText}>Mis logros</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.version}>Versión 3.0 — InsQUIZ Smart ICFES</Text>
-        <Text style={styles.credit}>© 2025 iSmaxu — Todos los derechos reservados</Text>
-      </View>
-    </ScrollView>
+      <Text style={styles.footer}>Versión 2.0 — Sin conexión, todo local ⚡</Text>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  content: {
-    padding: 20,
+  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  header: { alignItems: "center", marginBottom: 40 },
+  logo: { width: 110, height: 110, marginBottom: 8 },
+  title: { fontSize: 32, fontWeight: "bold", color: "#fff" },
+  subtitle: { color: "#eee", fontSize: 16, textAlign: "center", width: "80%" },
+  buttons: { alignItems: "center", width: "90%" },
+  mainButton: { width: "90%", marginBottom: 20 },
+  gradientButton: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#6a0dad",
-    textAlign: "center",
-    marginTop: 10,
-  },
-  subtitle: {
-    textAlign: "center",
-    color: "#555",
-    fontSize: 15,
-    marginVertical: 8,
-    paddingHorizontal: 10,
-  },
-  banner: {
-    width: 200,
-    height: 200,
-    marginVertical: 20,
-    resizeMode: "contain",
-  },
-  card: {
-    backgroundColor: "#fafafa",
-    borderRadius: 20,
-    padding: 20,
-    width: "100%",
-    maxWidth: 400,
-    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    paddingVertical: 18,
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 10,
-  },
-  button: {
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginVertical: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 10,
   },
-  footer: {
-    marginTop: 25,
+  secondaryButton: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    width: "80%",
+    justifyContent: "center",
+    marginBottom: 14,
   },
-  version: {
-    color: "#777",
+  secondaryText: { color: "#fff", fontSize: 16, fontWeight: "500", marginLeft: 8 },
+  footer: {
+    position: "absolute",
+    bottom: 25,
+    color: "#ccc",
     fontSize: 13,
-  },
-  credit: {
-    color: "#aaa",
-    fontSize: 12,
-    marginTop: 4,
   },
 });

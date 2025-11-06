@@ -23,3 +23,6 @@ npm install
 expo start
 eas update --branch preview --message "Actualización de contenido o UI"
 ```
+Hay que configurar para que el sistema muestre todas de manera de 18 en 18 por materia
+
+que los contextos sean generales
