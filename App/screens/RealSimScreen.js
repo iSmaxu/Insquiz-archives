@@ -1,7 +1,7 @@
 // ==========================================================
 // INSQUIZ - Simulacro Real (con contextos + SafeAreaView)
 // ==========================================================
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Platform,
   UIManager,
   SafeAreaView,
+  Animated,
+  Vibration,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { getSimulacroReal, TIEMPO_POR_PREGUNTA } from "../services/realSimService";
@@ -20,11 +22,11 @@ import { saveQuizResult } from "../services/resultService";
 import * as Animatable from "react-native-animatable";
 
 // ✅ datasets de contexto
-import textos_lectura from "../data/textos_lectura.json";
-import textos_matematicas from "../data/textos_matematicas.json";
-import textos_ciencias_sociales from "../data/textos_ciencias_sociales.json";
-import textos_ciencias_naturales from "../data/textos_ciencias_naturales.json";
-import textos_ingles from "../data/textos_ingles.json";
+import textos_lectura from "../data/textos/textos_lectura.json";
+import textos_matematicas from "../data/textos/textos_matematicas.json";
+import textos_ciencias_sociales from "../data/textos/textos_ciencias_sociales.json";
+import textos_ciencias_naturales from "../data/textos/textos_ciencias_naturales.json";
+import textos_ingles from "../data/textos/textos_ingles.json";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -35,7 +37,8 @@ export default function RealSimScreen({ navigation }) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
-  const [showJust, setShowJust] = useState(false);
+  const [showJustification, setShowJustification] = useState(false);
+  const anim = useRef(new Animated.Value(0)).current;
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -45,15 +48,22 @@ export default function RealSimScreen({ navigation }) {
   // 🔹 Cargar preguntas del simulacro
   // ==========================================================
   useEffect(() => {
-    const qs = getSimulacroReal();
-    if (qs && qs.length > 0) {
-      setPreguntas(qs);
-      setTiempoRestante(qs.length * TIEMPO_POR_PREGUNTA);
-      setLoading(false);
-    } else {
-      console.error("❌ No se pudieron cargar preguntas del simulacro.");
-      setLoading(false);
-    }
+    (async () => {
+      try {
+        const qs = await getSimulacroReal();
+        if (qs && qs.length > 0) {
+          setPreguntas(qs);
+          setTiempoRestante(qs.length * TIEMPO_POR_PREGUNTA);
+        } else {
+          // no questions found
+          // console.warn("No se pudieron cargar preguntas del simulacro.");
+        }
+      } catch (e) {
+        // console.warn("Error cargando simulacro:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   // ==========================================================
@@ -138,14 +148,23 @@ export default function RealSimScreen({ navigation }) {
   const handleSelect = (opt) => {
     if (selected) return;
     setSelected(opt);
-    if (opt.trim().startsWith(pregunta.answer?.trim())) setScore((s) => s + 1);
-    setShowJust(true);
+    const isCorrect = opt.trim().startsWith(pregunta.answer?.trim());
+  if (isCorrect) setScore((s) => s + 1);
+    setShowJustification(false);
+    anim.setValue(0);
+
+    if (!isCorrect && Vibration && Vibration.vibrate) {
+      try { Vibration.vibrate(50); } catch (e) { /* ignore */ }
+    }
+
+    Animated.timing(anim, { toValue: 1, duration: 350, useNativeDriver: false }).start(() => {
+      setShowJustification(true);
+    });
   };
 
   const siguiente = () => {
     if (index + 1 < preguntas.length) {
       setSelected(null);
-      setShowJust(false);
       setExpanded(false);
       setIndex(index + 1);
     } else {
@@ -247,45 +266,39 @@ export default function RealSimScreen({ navigation }) {
             {(pregunta.options || []).map((opt, i) => {
               const isSelected = selected === opt;
               const isCorrect = opt.trim().startsWith(pregunta.answer?.trim());
-              let bg = "#fff",
-                border = "#ccc",
-                color = "#333";
 
-              if (selected) {
-                if (isSelected && isCorrect) {
-                  bg = "#4caf50";
-                  border = "#4caf50";
-                  color = "#fff";
-                } else if (isSelected && !isCorrect) {
-                  bg = "#f44336";
-                  border = "#f44336";
-                  color = "#fff";
-                } else if (isCorrect) {
-                  bg = "#81c784";
-                  border = "#81c784";
-                  color = "#fff";
-                }
+              if (isSelected) {
+                const bg = anim.interpolate({ inputRange: [0, 1], outputRange: ["#fff", isCorrect ? "#4caf50" : "#f44336"] });
+                const border = anim.interpolate({ inputRange: [0, 1], outputRange: ["#ccc", isCorrect ? "#4caf50" : "#f44336"] });
+                const textColor = anim.interpolate({ inputRange: [0, 1], outputRange: ["#333", "#fff"] });
+                return (
+                  <Animated.View key={i} style={[styles.option, { backgroundColor: bg, borderColor: border }]}>
+                    <TouchableOpacity onPress={() => handleSelect(opt)} disabled={!!selected}>
+                      <Animated.Text style={[styles.optionText, { color: textColor }]}>{opt}</Animated.Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
               }
 
               return (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.option, { backgroundColor: bg, borderColor: border }]}
-                  onPress={() => handleSelect(opt)}
-                  disabled={!!selected}
-                >
-                  <Text style={[styles.optionText, { color }]}>{opt}</Text>
+                <TouchableOpacity key={i} style={[styles.option, { backgroundColor: "#fff", borderColor: "#ccc" }]} onPress={() => handleSelect(opt)} disabled={!!selected}>
+                  <Text style={[styles.optionText, { color: "#333" }]}>{opt}</Text>
                 </TouchableOpacity>
               );
             })}
 
             {/* BOTÓN SIGUIENTE */}
-            {selected && (
+            {showJustification && (
+              <View style={styles.justBox}>
+                <Text style={styles.justTitle}>Justificación</Text>
+                <Text style={styles.justText}>{pregunta.justification || ""}</Text>
+              </View>
+            )}
+
+            {showJustification && (
               <TouchableOpacity style={styles.nextBtn} onPress={siguiente}>
                 <LinearGradient colors={["#8e24aa", "#6a0dad"]} style={styles.btnGrad}>
-                  <Text style={styles.btnText}>
-                    {index + 1 < preguntas.length ? "Siguiente ➜" : "Finalizar"}
-                  </Text>
+                  <Text style={styles.btnText}>{index + 1 < preguntas.length ? "Siguiente ➜" : "Finalizar"}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -336,4 +349,7 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   loading: { color: "#333", fontSize: 18, marginTop: 10 },
+  justBox: { marginTop: 12, backgroundColor: "#fff", padding: 12, borderRadius: 8 },
+  justTitle: { fontWeight: "700", marginBottom: 6 },
+  justText: { color: "#333" },
 });

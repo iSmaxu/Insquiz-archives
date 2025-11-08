@@ -11,11 +11,11 @@ export default function PracticeMenuScreen({ navigation }) {
   const [showSubjects, setShowSubjects] = useState(false);
 
   const materias = [
-    { name: "Lectura crítica", icon: "book-open-page-variant" },
-    { name: "Matemáticas", icon: "calculator" },
-    { name: "Ciencias naturales", icon: "flask-outline" },
-    { name: "Sociales y ciudadanas", icon: "earth" },
-    { name: "Inglés", icon: "translate" },
+    { key: "lectura", name: "Lectura crítica", icon: "book-open-page-variant" },
+    { key: "matematicas", name: "Matemáticas", icon: "calculator" },
+    { key: "ciencias_naturales", name: "Ciencias naturales", icon: "flask-outline" },
+    { key: "ciencias_sociales", name: "Sociales y ciudadanas", icon: "earth" },
+    { key: "ingles", name: "Inglés", icon: "translate" },
   ];
 
   return (
@@ -38,8 +38,9 @@ export default function PracticeMenuScreen({ navigation }) {
         style={[styles.optionCard, { backgroundColor: "#8e24aa" }]}
         onPress={() =>
           navigation.navigate("Quiz", {
-            area: "Práctica completa",
-            mode: "completa",
+            subject: "all",
+            count: 50,
+            subjectLabel: "Práctica completa",
           })
         }
       >
@@ -56,8 +57,9 @@ export default function PracticeMenuScreen({ navigation }) {
               style={styles.subjectCard}
               onPress={() =>
                 navigation.navigate("Quiz", {
-                  area: m.name,
-                  mode: "materia",
+                  subject: m.key,
+                  subjectLabel: m.name,
+                  count: 10,
                 })
               }
             >

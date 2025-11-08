@@ -1,5 +1,5 @@
 // App/components/QuestionCard.js
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Vibration,
+  Animated,
 } from "react-native";
 
 // Habilitar animaciones en Android
@@ -19,16 +21,35 @@ export default function QuestionCard({ question, index, total, onNext, bankStatu
   const [selected, setSelected] = useState(null);
   const [showInfo, setShowInfo] = useState(false);
   const [isCorrect, setIsCorrect] = useState(null);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const isLocal = bankStatus === "local";
 
   const handleSelect = (option) => {
     if (selected) return; // evita doble clic
+    
     setSelected(option);
+    const correct = option === (question.correcta || question.answer);
+    setIsCorrect(correct);
 
-    if (!isLocal) {
-      setIsCorrect(option === question.correcta);
+    if (!correct) {
+      // Vibrar cuando la respuesta es incorrecta
+      Vibration.vibrate(150);
     }
+
+    // Animación de fade out y fade in
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 0.5,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      })
+    ]).start();
   };
 
   const toggleInfo = () => {
@@ -54,30 +75,43 @@ export default function QuestionCard({ question, index, total, onNext, bankStatu
       {Array.isArray(question.opciones || question.options) &&
         (question.opciones || question.options).map((opt, i) => {
           const isSelected = selected === opt;
-          const correct = opt === (question.correcta || question.answer);
+          const isCorrectAnswer = opt === (question.correcta || question.answer);
 
-          let bg = "#f7f7f7";
+          // Determinar el color de fondo y el estilo
+          let optionStyle = {
+            ...styles.option,
+            backgroundColor: "#f7f7f7"
+          };
+
           if (selected) {
-            if (isLocal) {
-              bg = isSelected ? "#e0d7f8" : "#f7f7f7";
-            } else {
-              bg =
-                isSelected && isCorrect
-                  ? "#c8f7c5"
-                  : isSelected && !isCorrect
-                  ? "#f8d7da"
-                  : "#f7f7f7";
+            if (isSelected) {
+              // Respuesta seleccionada
+              optionStyle.backgroundColor = isCorrect ? "#c8f7c5" : "#f8d7da";
+              optionStyle.borderColor = isCorrect ? "#28a745" : "#dc3545";
+              optionStyle.borderWidth = 2;
+            } else if (isCorrectAnswer && !isCorrect) {
+              // Mostrar la respuesta correcta si el usuario eligió incorrectamente
+              optionStyle.backgroundColor = "#c8f7c5";
+              optionStyle.borderColor = "#28a745";
+              optionStyle.borderWidth = 2;
             }
           }
 
           return (
-            <TouchableOpacity
-              key={i}
-              style={[styles.option, { backgroundColor: bg }]}
-              onPress={() => handleSelect(opt)}
-            >
-              <Text style={styles.optionText}>{opt}</Text>
-            </TouchableOpacity>
+            <Animated.View key={i} style={{ opacity: fadeAnim }}>
+              <TouchableOpacity
+                style={optionStyle}
+                onPress={() => handleSelect(opt)}
+                disabled={selected !== null} // Bloquear selección después de elegir
+              >
+                <Text style={[
+                  styles.optionText,
+                  selected && (isSelected || (isCorrectAnswer && !isCorrect)) && styles.selectedOptionText
+                ]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           );
         })}
 
@@ -175,10 +209,15 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderWidth: 1,
     borderColor: "#ddd",
+    transform: [{ scale: 1 }],
   },
   optionText: {
     fontSize: 16,
     color: "#333",
+    textAlign: "center",
+  },
+  selectedOptionText: {
+    fontWeight: "bold",
   },
   footer: {
     marginTop: 20,

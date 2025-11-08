@@ -33,6 +33,7 @@ const ROUTES = {
   HOME_STACK: "HomeStack",
   HOME_MAIN: "HomeMain",
   PRACTICE_MENU: "PracticeMenu",
+  HomeScreen: "Home",
   REAL_SIM: "RealSim",
   QUIZ: "Quiz",
   RESULT: "Result",
@@ -112,6 +113,7 @@ const DrawerRoot = memo(function DrawerRoot() {
 const RootStack = memo(function RootStack() {
   return (
     <Stack.Navigator screenOptions={defaultScreenOptions}>
+      <Stack.Screen name={ROUTES.HomeScreen} component={HomeScreen} />
       <Stack.Screen name={ROUTES.DRAWER_ROOT} component={DrawerRoot} />
       <Stack.Screen 
         name={ROUTES.QUIZ}
