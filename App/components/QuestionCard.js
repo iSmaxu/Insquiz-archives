@@ -1,266 +1,126 @@
 // App/components/QuestionCard.js
-import React, { useState, useRef } from "react";
+// ==========================================================
+// INSQUIZ - QuestionCard (versión final con context_text real)
+// ==========================================================
+// Muestra el contexto completo desde data/textos_***.json
+// usando el "context" de la pregunta como context_title.
+// ==========================================================
+import React, { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-  Vibration,
-  Animated,
+  ScrollView,
 } from "react-native";
+import { getTextForQuestion } from "../services/textService";
 
-// Habilitar animaciones en Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-export default function QuestionCard({ question, index, total, onNext, bankStatus }) {
+export default function QuestionCard({ question, index, total, onNext }) {
   const [selected, setSelected] = useState(null);
-  const [showInfo, setShowInfo] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [locked, setLocked] = useState(false);
 
-  const isLocal = bankStatus === "local";
+  // 👇 Buscamos el contexto completo desde /data/textos
+  const contextData = getTextForQuestion(question);
 
-  const handleSelect = (option) => {
-    if (selected) return; // evita doble clic
-    
-    setSelected(option);
-    const correct = option === (question.correcta || question.answer);
-    setIsCorrect(correct);
+  const handleSelect = (opt) => {
+    if (locked) return;
+    setSelected(opt);
+    setLocked(true);
 
-    if (!correct) {
-      // Vibrar cuando la respuesta es incorrecta
-      Vibration.vibrate(150);
-    }
+    const isCorrect =
+      opt === question.answer || opt?.trim() === question.answer?.trim();
 
-    // Animación de fade out y fade in
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0.5,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      })
-    ]).start();
-  };
-
-  const toggleInfo = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setShowInfo(!showInfo);
-  };
-
-  const handleLocalNext = () => {
-    setSelected(null);
-    onNext?.();
+    setTimeout(() => {
+      onNext && onNext(isCorrect);
+    }, 400);
   };
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.progress}>
-        Pregunta {index + 1} de {total}
-      </Text>
+    <ScrollView style={styles.card}>
+      {/* ====== CONTEXTO ====== */}
+      {contextData && (
+        <View style={styles.contextBox}>
+          <Text style={styles.contextTitle}>
+            {contextData.context_title || "Contexto"}
+          </Text>
+          <Text style={styles.contextBody}>
+            {contextData.context_text || "Sin contexto disponible."}
+          </Text>
+        </View>
+      )}
 
+      {/* ====== PREGUNTA ====== */}
       <Text style={styles.question}>
-        {question.pregunta || question.question || "Sin texto disponible"}
+        {index + 1}. {question.question}
       </Text>
 
-      {Array.isArray(question.opciones || question.options) &&
-        (question.opciones || question.options).map((opt, i) => {
-          const isSelected = selected === opt;
-          const isCorrectAnswer = opt === (question.correcta || question.answer);
+      {/* ====== OPCIONES ====== */}
+      {question.options &&
+        question.options.map((opt, i) => {
+          const isThisCorrect =
+            opt === question.answer ||
+            opt?.trim() === question.answer?.trim();
+          const isThisSelected = selected === opt;
 
-          // Determinar el color de fondo y el estilo
-          let optionStyle = {
-            ...styles.option,
-            backgroundColor: "#f7f7f7"
-          };
-
-          if (selected) {
-            if (isSelected) {
-              // Respuesta seleccionada
-              optionStyle.backgroundColor = isCorrect ? "#c8f7c5" : "#f8d7da";
-              optionStyle.borderColor = isCorrect ? "#28a745" : "#dc3545";
-              optionStyle.borderWidth = 2;
-            } else if (isCorrectAnswer && !isCorrect) {
-              // Mostrar la respuesta correcta si el usuario eligió incorrectamente
-              optionStyle.backgroundColor = "#c8f7c5";
-              optionStyle.borderColor = "#28a745";
-              optionStyle.borderWidth = 2;
-            }
+          let bg = "#fff";
+          if (locked && isThisSelected) {
+            bg = isThisCorrect ? "#c8e6c9" : "#ffcdd2";
           }
 
           return (
-            <Animated.View key={i} style={{ opacity: fadeAnim }}>
-              <TouchableOpacity
-                style={optionStyle}
-                onPress={() => handleSelect(opt)}
-                disabled={selected !== null} // Bloquear selección después de elegir
-              >
-                <Text style={[
-                  styles.optionText,
-                  selected && (isSelected || (isCorrectAnswer && !isCorrect)) && styles.selectedOptionText
-                ]}>
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+            <TouchableOpacity
+              key={i}
+              style={[styles.option, { backgroundColor: bg }]}
+              onPress={() => handleSelect(opt)}
+              activeOpacity={0.7}
+              disabled={locked}
+            >
+              <Text style={styles.optionText}>{opt}</Text>
+            </TouchableOpacity>
           );
         })}
-
-      {/* Modo LOCAL (banco viejo) */}
-      {isLocal && selected && (
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: "#6a0dad" }]}
-            onPress={handleLocalNext}
-          >
-            <Text style={styles.buttonText}>Siguiente pregunta</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Modo ONLINE (banco nuevo con animación y justificación) */}
-      {!isLocal && selected && (
-        <View style={styles.footer}>
-          {!showInfo ? (
-            <>
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: "#6a0dad" }]}
-                onPress={toggleInfo}
-              >
-                <Text style={styles.buttonText}>Ver más información</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: "#444" }]}
-                onPress={onNext}
-              >
-                <Text style={styles.buttonText}>Siguiente pregunta</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.infoBox}>
-              <Text style={styles.infoTitle}>
-                {isCorrect ? "✅ ¡Respuesta correcta!" : "❌ Respuesta incorrecta"}
-              </Text>
-              <Text style={styles.justificacion}>
-                {question.justificacion || "No hay justificación disponible."}
-              </Text>
-              <Text style={styles.skill}>
-                🧠 Habilidad desarrollada:{" "}
-                <Text style={{ fontWeight: "bold" }}>
-                  {question.skill || "Sin registro"}
-                </Text>
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: "#6a0dad" }]}
-                onPress={onNext}
-              >
-                <Text style={styles.buttonText}>Siguiente pregunta</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
-    </View>
+    </ScrollView>
   );
 }
 
+// ==========================================================
+// 🎨 ESTILOS
+// ==========================================================
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    width: "100%",
-    maxWidth: 600,
-    alignSelf: "center",
+    padding: 16,
   },
-  progress: {
+  contextBox: {
+    backgroundColor: "#f3f2ff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  contextTitle: {
+    fontWeight: "bold",
     color: "#6a0dad",
-    fontWeight: "600",
-    marginBottom: 10,
-    textAlign: "center",
+    marginBottom: 6,
+    fontSize: 16,
+  },
+  contextBody: {
+    color: "#333",
+    lineHeight: 20,
+    fontSize: 15,
   },
   question: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 16,
-    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "600",
+    marginBottom: 12,
+    color: "#222",
   },
   option: {
-    backgroundColor: "#f7f7f7",
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    marginVertical: 6,
     borderWidth: 1,
     borderColor: "#ddd",
-    transform: [{ scale: 1 }],
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
   },
   optionText: {
-    fontSize: 16,
     color: "#333",
-    textAlign: "center",
-  },
-  selectedOptionText: {
-    fontWeight: "bold",
-  },
-  footer: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginVertical: 5,
-    minWidth: 200,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  infoBox: {
-    marginTop: 20,
-    backgroundColor: "#f9f9ff",
-    padding: 16,
-    borderRadius: 12,
-    borderColor: "#e0e0ff",
-    borderWidth: 1,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#6a0dad",
-    textAlign: "center",
-  },
-  justificacion: {
-    fontSize: 15,
-    color: "#333",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  skill: {
-    fontSize: 14,
-    color: "#444",
-    marginBottom: 10,
-    textAlign: "center",
   },
 });

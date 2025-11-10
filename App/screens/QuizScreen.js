@@ -1,169 +1,115 @@
 // App/screens/QuizScreen.js
+// ==========================================================
+// INSQUIZ - QuizScreen (2025)
+// ==========================================================
+// Compatible con context textual (context_title / context_text)
+// ==========================================================
 import React, { useContext, useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Animated,
-  Vibration,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, Text, StyleSheet, Animated } from "react-native";
 import { QuizContext } from "../context/QuizContext";
-import { answerMatchesMaster } from "../services/quizService";
+import { prepareQuizFromSubject } from "../services/quizService";
+import { saveResultSession } from "../services/resultService";
+import { registerStats } from "../services/statsService";
+import QuestionCard from "../components/QuestionCard";
 
 export default function QuizScreen({ route, navigation }) {
-  const { questionsBank, subjects, startQuiz, selectedQuiz } = useContext(QuizContext);
+  const { subjectKey = "lectura" } = route.params || {};
+  const { updateProgress } = useContext(QuizContext);
+
+  const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
-  const [current, setCurrent] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
-  const [showJustification, setShowJustification] = useState(false);
-  const anim = useRef(new Animated.Value(0)).current;
-  const subjectKey = route?.params?.subject || "lectura";
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const countParam = route?.params?.count;
-    const defaultCount = subjectKey === "all" ? 50 : 10;
-    const count = typeof countParam === "number" ? countParam : defaultCount;
-    if (!selectedQuiz) startQuiz(subjectKey, count);
-    // NOTE: startQuiz and selectedQuiz are stable from context; include to satisfy hooks rules
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startQuiz, route?.params?.count, subjectKey]);
+    (async () => {
+      console.log(`📘 Cargando preguntas para ${subjectKey}...`);
+      const data = await prepareQuizFromSubject(subjectKey, 10);
+      setQuestions(data);
 
-  useEffect(() => {
-    if (selectedQuiz && selectedQuiz.length > 0) {
-      setCurrent(selectedQuiz[index]);
-      setSelected(null);
-      setShowResult(false);
-      setShowJustification(false);
-      anim.setValue(0);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    })();
+  }, [subjectKey]);
+
+  const handleNext = async (wasCorrect) => {
+    if (wasCorrect) setScore((s) => s + 1);
+
+    if (index + 1 < questions.length) {
+      setIndex((i) => i + 1);
+    } else {
+      await finishQuiz();
     }
-  }, [selectedQuiz, index]);
+  };
+
+  const finishQuiz = async () => {
+    const total = questions.length;
+    await saveResultSession({
+      subject: subjectKey,
+      score,
+      total,
+      accuracy: ((score / total) * 100).toFixed(1),
+      date: new Date().toISOString(),
+    });
+
+    await registerStats("practice", subjectKey, score, total);
+    updateProgress(subjectKey, score, total);
+    setShowResult(true);
+  };
+
+  const current = questions[index];
 
   if (!current) {
     return (
-      <LinearGradient colors={["#4A148C", "#b40000"]} style={styles.container}>
-        <Text style={styles.title}>Cargando preguntas...</Text>
-      </LinearGradient>
+      <View style={styles.center}>
+        <Text style={styles.loading}>Cargando preguntas...</Text>
+      </View>
     );
   }
 
-  const handleSelect = (letter) => {
-    if (!current) return;
-    // Normalizar a letra mayúscula
-    const chosen = (letter || "").toString().toUpperCase();
-    setSelected(chosen);
-    const correct = answerMatchesMaster(chosen, current.answer);
-    setShowResult(true);
-    setShowJustification(false);
-    anim.setValue(0);
-
-    if (!correct && Vibration && Vibration.vibrate) {
-      // pequeña vibración para respuesta incorrecta
-      try { Vibration.vibrate(50); } catch (e) { /* ignore */ }
-    }
-
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 350,
-      useNativeDriver: false,
-    }).start(() => {
-      // Al terminar la animación, mostramos la justificación y habilitamos Siguiente
-      setShowJustification(true);
-    });
-  };
-
-  const handleNext = () => {
-    if (index + 1 < (selectedQuiz || []).length) {
-      setIndex(index + 1);
-    } else {
-      navigation.navigate("Result");
-    }
-  };
-
   return (
-    <LinearGradient colors={["#4A148C", "#6a0dad"]} style={styles.container}>
-      <SafeAreaView style={{ flex: 1, width: "100%" }}>
-        <ScrollView contentContainerStyle={styles.inner}>
-          {current.context_text ? (
-            <View style={styles.contextBox}>
-              <Text style={styles.contextTitle}>Contexto</Text>
-              <Text style={styles.contextText}>{current.context_text}</Text>
-            </View>
-          ) : null}
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>🧩 {subjectKey.toUpperCase()}</Text>
+        <Text style={styles.progress}>
+          Pregunta {index + 1} / {questions.length}
+        </Text>
+      </View>
 
-          <View style={styles.card}>
-            <Text style={styles.question}>{current.pregunta}</Text>
+      <QuestionCard
+        question={current}
+        index={index}
+        total={questions.length}
+        onNext={handleNext}
+      />
 
-            {current.options && current.options.map((opt, i) => {
-              const letter = String.fromCharCode(65 + i); // A, B, C
-              const isSelected = selected === letter;
-              const isCorrect = answerMatchesMaster(letter, current.answer);
-
-              // Para la opción seleccionada usamos Animated background
-              if (isSelected) {
-                const bgColor = anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["#f7f7f7", isCorrect ? "#d4edda" : "#f8d7da"],
-                });
-                return (
-                  <Animated.View key={i} style={[styles.option, isSelected ? styles.optionSelected : null, { backgroundColor: bgColor }]}>
-                    <TouchableOpacity style={{ padding: 8 }} onPress={() => handleSelect(letter)}>
-                      <Text style={styles.optionText}>{`${letter}) ${opt.replace(/^[A-D]\)\s*/i, "")}`}</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                );
-              }
-
-              return (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.option]}
-                  onPress={() => handleSelect(letter)}
-                >
-                  <Text style={styles.optionText}>{`${letter}) ${opt.replace(/^[A-D]\)\s*/i, "")}`}</Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            {showJustification && (
-              <View style={styles.justificationBox}>
-                <Text style={styles.justificationTitle}>Justificación</Text>
-                <Text style={styles.justificationText}>{current.justification || current.justification?.toString?.() || ""}</Text>
-              </View>
-            )}
-
-            {showJustification && (
-              <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextText}>Siguiente</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+      {showResult && (
+        <View style={styles.resultBox}>
+          <Text style={styles.resultText}>
+            ✅ Has completado el quiz con {score} / {questions.length} aciertos.
+          </Text>
+        </View>
+      )}
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  inner: { alignItems: "center", padding: 20 },
-  contextBox: { backgroundColor: "#fff", padding: 14, borderRadius: 12, marginBottom: 18, width: "100%" },
-  contextTitle: { fontWeight: "700", marginBottom: 6 },
-  contextText: { color: "#333" },
-  card: { backgroundColor: "#fff", padding: 18, borderRadius: 14, width: "100%" },
-  question: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  option: { padding: 12, borderRadius: 10, backgroundColor: "#f7f7f7", marginBottom: 10 },
-  optionText: { color: "#222" },
-  optionSelected: { borderColor: "#6a0dad", borderWidth: 2 },
-  optionCorrect: { backgroundColor: "#d4edda" },
-  nextButton: { marginTop: 12, backgroundColor: "#6a0dad", padding: 12, borderRadius: 10, alignItems: "center" },
-  nextText: { color: "#fff", fontWeight: "700" },
-  justificationBox: { marginTop: 12, backgroundColor: "#fff", padding: 12, borderRadius: 8 },
-  justificationTitle: { fontWeight: "700", marginBottom: 6 },
-  justificationText: { color: "#333" },
-  title: { color: "#fff", textAlign: "center", marginTop: 40 }
+  container: { flex: 1, backgroundColor: "#fafafa", padding: 16 },
+  header: { alignItems: "center", marginBottom: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#6a0dad" },
+  progress: { color: "#777", fontSize: 14 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loading: { fontSize: 16, color: "#6a0dad" },
+  resultBox: {
+    backgroundColor: "#eee",
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 8,
+  },
+  resultText: { textAlign: "center", fontWeight: "bold", color: "#333" },
 });

@@ -1,89 +1,85 @@
 // App/services/quizService.js
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import master from "../data/InsQUIZ_master_reindexed.json";
-import textosLectura from "../data/textos/textos_lectura.json";
-import textosMatematicas from "../data/textos/textos_matematicas.json";
-import textosSociales from "../data/textos/textos_ciencias_sociales.json";
-import textosNaturales from "../data/textos/textos_ciencias_naturales.json";
-import textosIngles from "../data/textos/textos_ingles.json";
+// ==========================================================
+// INSQUIZ - Quiz Service (versión 2025 con context textual)
+// ==========================================================
+// Usa los campos del JSON reindexado, filtra por prefijo (LQ-, CN-, MT-, etc.)
+// y devuelve las preguntas con context = string literal.
+// ==========================================================
+import { shuffleArray } from "./utilsService";
 
-const CACHE_KEY = "questions_cached_v2";
+let cachedQuestions = [];
 
-function normalizeKey(s = "") {
-  return s.toString().toLowerCase().trim();
-}
+const SUBJECT_PREFIX = {
+  lectura: "LQ-",
+  matematicas: "MT-",
+  sociales: "CS-",
+  ciencias_naturales: "CN-",
+  ingles: "IN-",
+};
 
-function buildContextMap() {
-  // Map context title -> context_text for all datasets
-  const map = new Map();
-  const datasets = [textosLectura, textosMatematicas, textosSociales, textosNaturales, textosIngles];
-  for (const ds of datasets) {
-    if (!Array.isArray(ds)) continue;
-    for (const t of ds) {
-      const key = normalizeKey(t.context_title || t.title || "");
-      if (key) map.set(key, t.context_text || t.text || "");
-    }
-  }
-  return map;
-}
-
-function normalizeQuestion(raw) {
-  if (!raw) return null;
-  const id = raw.id || raw.ID || "";
-  const pregunta = raw.question || raw.pregunta || "";
-  const options = raw.options || raw.respuestas || [];
-  const answer = raw.answer || raw.correcta || "";
-  const context = raw.context || raw.contexto || "";
-  return { id, pregunta, options, answer, context, raw };
-}
-
-export async function loadQuestionsCache(onProgress = () => {}) {
+// ==========================================================
+// 🚀 Precarga del banco completo
+// ==========================================================
+export async function preloadQuestions() {
   try {
-    const cached = await AsyncStorage.getItem(CACHE_KEY);
-    if (cached) return JSON.parse(cached);
+    if (cachedQuestions.length > 0) return;
+    console.log("⏳ Precargando banco maestro...");
+    const data = require("../data/InsQUIZ_master_reindexed.json");
 
-    const contextMap = buildContextMap();
-
-    const subjects = Object.keys(master);
-    const result = {};
-    let total = 0;
-
-    for (const subject of subjects) {
-      const list = master[subject] || [];
-      const normalized = list.map(normalizeQuestion).filter(Boolean);
-      const withContext = normalized.map((q) => {
-        const key = normalizeKey(q.context);
-        const context_text = contextMap.get(key) || "";
-        return { ...q, context_text };
-      }).filter(q => q.context_text && q.pregunta);
-
-      result[subject] = withContext;
-      total += withContext.length;
-      onProgress({ subject, count: withContext.length, total });
+    if (Array.isArray(data)) {
+      cachedQuestions = data;
+    } else {
+      cachedQuestions = Object.values(data).flat();
     }
 
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(result));
-    return result;
-  } catch (e) {
-    console.error("Error loading questions cache:", e);
-    return {};
+    console.log(`✅ Preguntas cargadas: ${cachedQuestions.length}`);
+  } catch (error) {
+    console.error("❌ Error cargando preguntas:", error);
+    cachedQuestions = [];
   }
 }
 
-export async function clearQuestionsCache() {
-  await AsyncStorage.removeItem(CACHE_KEY);
+// ==========================================================
+// 🎯 Filtrar preguntas por materia según prefijo
+// ==========================================================
+export async function getQuestionsBySubject(subjectKey) {
+  if (!cachedQuestions.length) await preloadQuestions();
+
+  const prefix =
+    SUBJECT_PREFIX[subjectKey?.toLowerCase()] ||
+    subjectKey?.toUpperCase()?.substring(0, 2) + "-";
+
+  const filtered = cachedQuestions.filter((q) =>
+    q.id?.startsWith(prefix)
+  );
+
+  if (!filtered.length) {
+    console.warn(`⚠️ No se encontraron preguntas para: ${subjectKey}`);
+    return [];
+  }
+
+  const shuffled = shuffleArray(filtered);
+  console.log(`📘 ${filtered.length} preguntas encontradas para ${subjectKey}`);
+  return shuffled;
 }
 
-export function prepareQuizFromSubject(subjectArray, count = 10) {
-  if (!Array.isArray(subjectArray)) return [];
-  const shuffled = subjectArray.sort(() => Math.random() - 0.5).slice(0, count);
-  return shuffled.map((q) => ({ ...q, selected: null }));
+// ==========================================================
+// 🧩 Crear quiz con N preguntas aleatorias
+// ==========================================================
+export async function prepareQuizFromSubject(subjectKey, limit = 10) {
+  const data = await getQuestionsBySubject(subjectKey);
+  return data.slice(0, limit);
 }
 
-export function answerMatchesMaster(answerLetter, masterAnswer) {
-  // masterAnswer like "C)" or "C) texto"; normalize to letter
-  const got = (answerLetter || "").toString().toLowerCase().replace(/[^a-z]/g, "");
-  const correct = (masterAnswer || "").toString().toLowerCase().replace(/[^a-z]/g, "");
-  return got === correct;
+// ==========================================================
+// 🔄 Obtener una pregunta aleatoria por prefijo
+// ==========================================================
+export async function getRandomQuestionByPrefix(prefix = "LQ-") {
+  if (!cachedQuestions.length) await preloadQuestions();
+  const filtered = cachedQuestions.filter((q) =>
+    q.id?.startsWith(prefix)
+  );
+  if (!filtered.length) return null;
+  const random = filtered[Math.floor(Math.random() * filtered.length)];
+  return random;
 }
-

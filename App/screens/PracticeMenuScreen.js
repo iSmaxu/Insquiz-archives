@@ -33,6 +33,14 @@ export default function PracticeMenuScreen({ navigation }) {
         <Text style={styles.optionTitle}>Practicar materia específica</Text>
         <Text style={styles.optionText}>10 preguntas</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+      style={[styles.optionCard, { backgroundColor: "#0056b3" }]}
+      onPress={() => navigation.navigate("AdaptivePractice")}
+      >
+     <MaterialCommunityIcons name="brain" size={42} color="#fff" />
+    <Text style={styles.optionTitle}>Modo Adaptativo</Text>
+    <Text style={styles.optionText}>Entrenamiento inteligente</Text>
+    </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.optionCard, { backgroundColor: "#8e24aa" }]}

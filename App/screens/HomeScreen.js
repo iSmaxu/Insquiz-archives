@@ -1,102 +1,106 @@
-// App/screens/HomeScreen.js
-// ==========================================================
-// INSQUIZ - Home Principal
-// ==========================================================
-// Muestra logo, nombre de usuario (opcional), botón de práctica
-// y botones adicionales para simulacro o logros.
-// ==========================================================
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen() {
+  const navigation = useNavigation();
+
   return (
-    <LinearGradient colors={["#4A148C", "#b40000"]} style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
-
-        <Text style={styles.title}>InsQUIZ</Text>
-        <Text style={styles.subtitle}>Prepárate para el ICFES de forma inteligente</Text>
-        <Text style={styles.subtitle}>Mejora tu capacidad de compresion de textos</Text>
+        <Text style={styles.appTitle}>InsQUIZ</Text>
+        <Text style={styles.subtitle}>Entrena. Mejora. Supera el examen.</Text>
       </View>
 
-      <View style={styles.buttons}>
-        <TouchableOpacity
-          style={styles.mainButton}
-          onPress={() => navigation.navigate("PracticeMenu")}
-        >
-          <LinearGradient
-            colors={["#8e24aa", "#6a0dad"]}
-            style={styles.gradientButton}
-          >
-            <MaterialCommunityIcons name="book-open-page-variant" size={28} color="#fff" />
-            <Text style={styles.buttonText}>Modo práctica</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+      <TouchableOpacity
+  style={styles.mainButton}
+  onPress={() => navigation.navigate("PracticeMenuScreen")}
+>
+  <Ionicons name="book-outline" size={28} color="#fff" />
+  <View style={styles.textContainer}>
+    <Text style={styles.buttonTitle}>Modo práctica</Text>
+    <Text style={styles.buttonDesc}>Ejercita tus habilidades por materia</Text>
+  </View>
+</TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate("RealSim")}
-        >
-          <MaterialCommunityIcons name="target" size={26} color="#fff" />
-          <Text style={styles.secondaryText}>Simulacro real</Text>
-        </TouchableOpacity>
+<TouchableOpacity
+  style={styles.mainButton}
+  onPress={() => navigation.getParent()?.navigate("RealSimScreen")}
+>
+  <Ionicons name="timer-outline" size={28} color="#fff" />
+  <View style={styles.textContainer}>
+    <Text style={styles.buttonTitle}>Simulacro real</Text>
+    <Text style={styles.buttonDesc}>Pon a prueba tu conocimiento</Text>
+  </View>
+</TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate("Achievements")}
-        >
-          <MaterialCommunityIcons name="trophy" size={26} color="#fff" />
-          <Text style={styles.secondaryText}>Mis logros</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.getParent()?.navigate("PracticeMenuScreen")}
+      >
+        <Ionicons name="trophy-outline" size={26} color="#6a0dad" />
+        <Text style={styles.secondaryText}>Ver mis logros</Text>
+      </TouchableOpacity>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require("../../assets/icon.png")}
+          style={styles.image}
+          resizeMode="contain"
+        />
       </View>
-
-      <Text style={styles.footer}>Versión 2.0 — Sin conexión, todo local ⚡</Text>
-    </LinearGradient>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { alignItems: "center", marginBottom: 40 },
-  logo: { width: 110, height: 110, marginBottom: 8 },
-  title: { fontSize: 32, fontWeight: "bold", color: "#fff" },
-  subtitle: { color: "#eee", fontSize: 16, textAlign: "center", width: "80%" },
-  buttons: { alignItems: "center", width: "90%" },
-  mainButton: { width: "90%", marginBottom: 20 },
-  gradientButton: {
+  container: { flex: 1, backgroundColor: "#f8f8f8" },
+  header: {
+    padding: 25,
+    alignItems: "center",
+    backgroundColor: "#6a0dad",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  appTitle: { fontSize: 34, fontWeight: "900", color: "#fff", marginBottom: 5 },
+  subtitle: { fontSize: 14, color: "#e0e0e0" },
+  mainButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    paddingVertical: 18,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: "#6a0dad",
+    marginHorizontal: 20,
+    marginVertical: 10,
+    padding: 16,
+    borderRadius: 14,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 10,
-  },
+  textContainer: { marginLeft: 14 },
+  buttonTitle: { fontSize: 18, fontWeight: "700", color: "#fff" },
+  buttonDesc: { fontSize: 13, color: "#e5e5e5" },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    width: "80%",
     justifyContent: "center",
-    marginBottom: 14,
+    marginTop: 30,
+    marginHorizontal: 20,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#6a0dad",
   },
-  secondaryText: { color: "#fff", fontSize: 16, fontWeight: "500", marginLeft: 8 },
-  footer: {
-    position: "absolute",
-    bottom: 25,
-    color: "#ccc",
-    fontSize: 13,
+  secondaryText: {
+    color: "#6a0dad",
+    fontSize: 16,
+    fontWeight: "700",
+    marginLeft: 8,
   },
+  imageContainer: { alignItems: "center", marginTop: 40, marginBottom: 50 },
+  image: { width: 280, height: 220 },
 });
