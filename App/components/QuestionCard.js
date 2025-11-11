@@ -5,34 +5,64 @@
 // Muestra el contexto completo desde data/textos_***.json
 // usando el "context" de la pregunta como context_title.
 // ==========================================================
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Vibration,
 } from "react-native";
 import { getTextForQuestion } from "../services/textService";
 
 export default function QuestionCard({ question, index, total, onNext }) {
   const [selected, setSelected] = useState(null);
   const [locked, setLocked] = useState(false);
+  const [showJustification, setShowJustification] = useState(false);
+  const [showNext, setShowNext] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(null);
+  const timerRef = useRef(null);
 
   // 👇 Buscamos el contexto completo desde /data/textos
   const contextData = getTextForQuestion(question);
 
+  useEffect(() => {
+    // limpiar timers y estado cuando cambie la pregunta
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [question]);
+
   const handleSelect = (opt) => {
     if (locked) return;
-    setSelected(opt);
+    const normalizedOpt = typeof opt === "string" ? opt.trim() : opt;
+    const correctAns = (question.answer || "").trim();
+
+    const correct =
+      normalizedOpt === correctAns || normalizedOpt === question.answer;
+
+    setSelected(normalizedOpt);
+    setIsCorrect(Boolean(correct));
     setLocked(true);
 
-    const isCorrect =
-      opt === question.answer || opt?.trim() === question.answer?.trim();
+    // vibrar fuerte si es incorrecta
+    if (!correct) {
+      // patrón: pausa, vibración larga, corta
+      Vibration.vibrate([0, 400, 100, 200]);
+    }
 
-    setTimeout(() => {
-      onNext && onNext(isCorrect);
-    }, 400);
+    // mostramos la justificación inmediatamente
+    setShowJustification(true);
+
+    // mostramos el botón siguiente después de 250ms
+    timerRef.current = setTimeout(() => {
+      setShowNext(true);
+      timerRef.current = null;
+    }, 250);
   };
 
   return (
@@ -57,28 +87,73 @@ export default function QuestionCard({ question, index, total, onNext }) {
       {/* ====== OPCIONES ====== */}
       {question.options &&
         question.options.map((opt, i) => {
-          const isThisCorrect =
-            opt === question.answer ||
-            opt?.trim() === question.answer?.trim();
-          const isThisSelected = selected === opt;
+          const optText = typeof opt === "string" ? opt.trim() : opt;
+          const correctAns = (question.answer || "").trim();
+          const isThisCorrect = optText === correctAns;
+          const isThisSelected = selected !== null && selected === optText;
 
           let bg = "#fff";
-          if (locked && isThisSelected) {
-            bg = isThisCorrect ? "#c8e6c9" : "#ffcdd2";
+          let borderColor = "#ddd";
+          let textColor = "#333";
+
+          if (locked) {
+            if (isThisCorrect) {
+              bg = "#c8e6c9"; // verde claro
+              borderColor = "#28a745";
+            }
+
+            if (!isCorrect && isThisSelected) {
+              // el usuario eligió mal -> su opción en rojo
+              bg = "#ffcdd2"; // rojo claro
+              borderColor = "#d93025";
+              textColor = "#8a0000";
+            }
           }
 
           return (
             <TouchableOpacity
               key={i}
-              style={[styles.option, { backgroundColor: bg }]}
+              style={[styles.option, { backgroundColor: bg, borderColor }]}
               onPress={() => handleSelect(opt)}
               activeOpacity={0.7}
               disabled={locked}
             >
-              <Text style={styles.optionText}>{opt}</Text>
+              <Text style={[styles.optionText, { color: textColor }]}>{opt}</Text>
             </TouchableOpacity>
           );
         })}
+
+      {/* justificación */}
+      {showJustification && (
+        <View style={styles.justificationBox}>
+          <Text style={styles.justificationTitle}>Justificación</Text>
+          <Text style={styles.justificationText}>
+            {question.justification || question.justificacion || "Sin justificación disponible."}
+          </Text>
+        </View>
+      )}
+
+      {/* botón siguiente */}
+      {showNext && (
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={() => {
+            // enviar resultado al padre y limpiar estado
+            onNext && onNext(Boolean(isCorrect));
+            setSelected(null);
+            setLocked(false);
+            setShowJustification(false);
+            setShowNext(false);
+            setIsCorrect(null);
+            if (timerRef.current) {
+              clearTimeout(timerRef.current);
+              timerRef.current = null;
+            }
+          }}
+        >
+          <Text style={styles.nextText}>Siguiente ➜</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
