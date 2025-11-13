@@ -43,7 +43,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "expo-haptics": "~15.0.7"
   },
   "devDependencies": {
     "babel-preset-expo": "~54.0.0"

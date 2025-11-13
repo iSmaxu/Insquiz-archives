@@ -5,7 +5,7 @@
 // Compatible con context textual (context_title / context_text)
 // ==========================================================
 import React, { useContext, useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, ScrollView } from "react-native";
 import { QuizContext } from "../context/QuizContext";
 import { prepareQuizFromSubject } from "../services/quizService";
 import { saveResultSession } from "../services/resultService";
@@ -58,7 +58,8 @@ export default function QuizScreen({ route, navigation }) {
 
     await registerStats("practice", subjectKey, score, total);
     updateProgress(subjectKey, score, total);
-    setShowResult(true);
+    // navegar a pantalla de resultados para revisión completa
+    navigation.replace("Result", { score, total, area: subjectKey });
   };
 
   const current = questions[index];
@@ -73,7 +74,8 @@ export default function QuizScreen({ route, navigation }) {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <View style={styles.header}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
         <Text style={styles.headerTitle}>🧩 {subjectKey.toUpperCase()}</Text>
         <Text style={styles.progress}>
           Pregunta {index + 1} / {questions.length}
@@ -94,12 +96,14 @@ export default function QuizScreen({ route, navigation }) {
           </Text>
         </View>
       )}
+      </ScrollView>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fafafa", padding: 16 },
+  container: { flex: 1, backgroundColor: "#fafafa" },
+  scrollContent: { padding: 16, paddingBottom: 40, flexGrow: 1 },
   header: { alignItems: "center", marginBottom: 8 },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#6a0dad" },
   progress: { color: "#777", fontSize: 14 },

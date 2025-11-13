@@ -1,201 +1,256 @@
 // App/components/QuestionCard.js
 // ==========================================================
-// INSQUIZ - QuestionCard (versión final con context_text real)
+//  INSQUIZ - QuestionCard (usa context_text interno)
 // ==========================================================
-// Muestra el contexto completo desde data/textos_***.json
-// usando el "context" de la pregunta como context_title.
-// ==========================================================
-import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Vibration,
-} from "react-native";
-import { getTextForQuestion } from "../services/textService";
 
-export default function QuestionCard({ question, index, total, onNext }) {
+import React, { useEffect, useState, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Vibration, Animated } from "react-native";
+
+const NEXT_DELAY_MS = 250;
+
+export default function QuestionCard({
+  question,
+  questionIndex,
+  totalQuestions,
+  onAnswer,       // (isCorrect, selectedOption) => void
+  onNext,         // se llama cuando se pulsa el botón "Siguiente"
+}) {
   const [selected, setSelected] = useState(null);
-  const [locked, setLocked] = useState(false);
-  const [showJustification, setShowJustification] = useState(false);
-  const [showNext, setShowNext] = useState(false);
+  const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(null);
-  const timerRef = useRef(null);
+  const [showNext, setShowNext] = useState(false);
 
-  // 👇 Buscamos el contexto completo desde /data/textos
-  const contextData = getTextForQuestion(question);
+  const nextTimer = useRef(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // limpiar timers y estado cuando cambie la pregunta
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [question]);
+    // Resetear estado cuando cambia la pregunta
+    setSelected(null);
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setShowNext(false);
+    fadeAnim.setValue(0);
+    if (nextTimer.current) {
+      clearTimeout(nextTimer.current);
+    }
+  }, [question?.id]);
 
-  const handleSelect = (opt) => {
-    if (locked) return;
-    const normalizedOpt = typeof opt === "string" ? opt.trim() : opt;
-    const correctAns = (question.answer || "").trim();
+  useEffect(() => {
+    if (showNext) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showNext]);
 
-    const correct =
-      normalizedOpt === correctAns || normalizedOpt === question.answer;
+  const handleOptionPress = (opt) => {
+    if (isAnswered) return;
 
-    setSelected(normalizedOpt);
-    setIsCorrect(Boolean(correct));
-    setLocked(true);
+    const correct = question.answer?.trim?.() === opt.trim?.();
+    setSelected(opt);
+    setIsAnswered(true);
+    setIsCorrect(correct);
 
-    // vibrar fuerte si es incorrecta
     if (!correct) {
-      // patrón: pausa, vibración larga, corta
-      Vibration.vibrate([0, 400, 100, 200]);
+      // Vibración fuerte al fallo
+      Vibration.vibrate([0, 200, 100, 200]);
     }
 
-    // mostramos la justificación inmediatamente
-    setShowJustification(true);
+    // Avisamos al padre
+    onAnswer?.(correct, opt);
 
-    // mostramos el botón siguiente después de 250ms
-    timerRef.current = setTimeout(() => {
-      setShowNext(true);
-      timerRef.current = null;
-    }, 250);
+    // Mostrar botón "Siguiente" después de 250 ms
+    nextTimer.current = setTimeout(() => setShowNext(true), NEXT_DELAY_MS);
+  };
+
+  const getOptionStyle = (opt) => {
+    if (!isAnswered) return styles.option;
+
+    const correctOpt = question.answer?.trim?.();
+    const isSelectedOpt = selected === opt;
+    const isCorrectOpt = correctOpt === opt;
+
+    // Correcta seleccionada → verde
+    if (isSelectedOpt && isCorrectOpt) {
+      return [styles.option, styles.optionCorrect];
+    }
+
+    // Incorrecta seleccionada → roja
+    if (isSelectedOpt && !isCorrectOpt) {
+      return [styles.option, styles.optionIncorrect];
+    }
+
+    // Correcta (aunque no haya sido seleccionada) → verde tenue
+    if (!isSelectedOpt && isCorrectOpt) {
+      return [styles.option, styles.optionCorrectSoft];
+    }
+
+    return styles.option;
+  };
+
+  const getQuestionWrapperStyle = () => {
+    if (!isAnswered) return styles.questionWrapper;
+    if (isCorrect) return [styles.questionWrapper, styles.questionWrapperCorrect];
+    return [styles.questionWrapper, styles.questionWrapperIncorrect];
   };
 
   return (
-    <ScrollView style={styles.card}>
-      {/* ====== CONTEXTO ====== */}
-      {contextData && (
-        <View style={styles.contextBox}>
-          <Text style={styles.contextTitle}>
-            {contextData.context_title || "Contexto"}
-          </Text>
-          <Text style={styles.contextBody}>
-            {contextData.context_text || "Sin contexto disponible."}
-          </Text>
-        </View>
-      )}
-
-      {/* ====== PREGUNTA ====== */}
-      <Text style={styles.question}>
-        {index + 1}. {question.question}
+    <View style={styles.container}>
+      {/* Índice / Progreso */}
+      <Text style={styles.counter}>
+        Pregunta {questionIndex + 1} de {totalQuestions}
       </Text>
 
-      {/* ====== OPCIONES ====== */}
-      {question.options &&
-        question.options.map((opt, i) => {
-          const optText = typeof opt === "string" ? opt.trim() : opt;
-          const correctAns = (question.answer || "").trim();
-          const isThisCorrect = optText === correctAns;
-          const isThisSelected = selected !== null && selected === optText;
+      {/* Contexto (si existe) */}
+      {question.context_text ? (
+        <View style={styles.contextBox}>
+          <Text style={styles.contextTitle}>Texto</Text>
+          <Text style={styles.contextText}>{question.context_text}</Text>
+        </View>
+      ) : null}
 
-          let bg = "#fff";
-          let borderColor = "#ddd";
-          let textColor = "#333";
+      {/* Pregunta */}
+      <View style={getQuestionWrapperStyle()}>
+        <Text style={styles.questionText}>{question.question}</Text>
+      </View>
 
-          if (locked) {
-            if (isThisCorrect) {
-              bg = "#c8e6c9"; // verde claro
-              borderColor = "#28a745";
-            }
+      {/* Opciones */}
+      <View style={styles.optionsContainer}>
+        {question.options?.map((opt, idx) => (
+          <TouchableOpacity
+            key={`${question.id}-opt-${idx}`}
+            style={getOptionStyle(opt)}
+            onPress={() => handleOptionPress(opt)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.optionText}>{opt}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-            if (!isCorrect && isThisSelected) {
-              // el usuario eligió mal -> su opción en rojo
-              bg = "#ffcdd2"; // rojo claro
-              borderColor = "#d93025";
-              textColor = "#8a0000";
-            }
-          }
-
-          return (
-            <TouchableOpacity
-              key={i}
-              style={[styles.option, { backgroundColor: bg, borderColor }]}
-              onPress={() => handleSelect(opt)}
-              activeOpacity={0.7}
-              disabled={locked}
-            >
-              <Text style={[styles.optionText, { color: textColor }]}>{opt}</Text>
-            </TouchableOpacity>
-          );
-        })}
-
-      {/* justificación */}
-      {showJustification && (
+      {/* Justificación (solo cuando ya respondió) */}
+      {isAnswered && question.justification ? (
         <View style={styles.justificationBox}>
           <Text style={styles.justificationTitle}>Justificación</Text>
-          <Text style={styles.justificationText}>
-            {question.justification || question.justificacion || "Sin justificación disponible."}
-          </Text>
+          <Text style={styles.justificationText}>{question.justification}</Text>
         </View>
-      )}
+      ) : null}
 
-      {/* botón siguiente */}
+      {/* Botón siguiente con fade-in */}
       {showNext && (
-        <TouchableOpacity
-          style={styles.nextButton}
-          onPress={() => {
-            // enviar resultado al padre y limpiar estado
-            onNext && onNext(Boolean(isCorrect));
-            setSelected(null);
-            setLocked(false);
-            setShowJustification(false);
-            setShowNext(false);
-            setIsCorrect(null);
-            if (timerRef.current) {
-              clearTimeout(timerRef.current);
-              timerRef.current = null;
-            }
-          }}
-        >
-          <Text style={styles.nextText}>Siguiente ➜</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <TouchableOpacity style={styles.nextButton} onPress={onNext} activeOpacity={0.85}>
+            <Text style={styles.nextButtonText}>Siguiente</Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
-// ==========================================================
-// 🎨 ESTILOS
-// ==========================================================
 const styles = StyleSheet.create({
-  card: {
+  container: {
     padding: 16,
   },
-  contextBox: {
-    backgroundColor: "#f3f2ff",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  contextTitle: {
-    fontWeight: "bold",
-    color: "#6a0dad",
-    marginBottom: 6,
-    fontSize: 16,
-  },
-  contextBody: {
-    color: "#333",
-    lineHeight: 20,
-    fontSize: 15,
-  },
-  question: {
-    fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#222",
-  },
-  option: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+  counter: {
+    fontSize: 14,
+    color: "#aaa",
     marginBottom: 8,
   },
+  contextBox: {
+    backgroundColor: "#1c1c1e",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  contextTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffb74d",
+    marginBottom: 4,
+  },
+  contextText: {
+    fontSize: 14,
+    color: "#e0e0e0",
+  },
+  questionWrapper: {
+    backgroundColor: "#222",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  questionWrapperCorrect: {
+    borderColor: "#4caf50",
+  },
+  questionWrapperIncorrect: {
+    borderColor: "#f44336",
+  },
+  questionText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  optionsContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  option: {
+    backgroundColor: "#333",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  optionCorrect: {
+    backgroundColor: "#1b5e20",
+    borderColor: "#4caf50",
+  },
+  optionCorrectSoft: {
+    backgroundColor: "#1b5e2033",
+    borderColor: "#4caf50aa",
+  },
+  optionIncorrect: {
+    backgroundColor: "#5d1c1c",
+    borderColor: "#f44336",
+  },
   optionText: {
-    color: "#333",
+    color: "#fff",
+    fontSize: 15,
+  },
+  justificationBox: {
+    backgroundColor: "#111",
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#444",
+  },
+  justificationTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffb74d",
+    marginBottom: 4,
+  },
+  justificationText: {
+    fontSize: 14,
+    color: "#ddd",
+  },
+  nextButton: {
+    marginTop: 12,
+    backgroundColor: "#1976d2",
+    paddingVertical: 10,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  nextButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

@@ -2,7 +2,7 @@
 // INSQUIZ - ResultScreen (corregido con animación sobre 500)
 // ==========================================================
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,7 +35,8 @@ export default function ResultScreen({ route, navigation }) {
 
   return (
     <LinearGradient colors={["#4A148C", "#b40000"]} style={styles.container}>
-      <View style={styles.card}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
         <Text style={styles.title}>Resultado de {area}</Text>
 
         {/* Círculo de animación */}
@@ -80,12 +81,14 @@ export default function ResultScreen({ route, navigation }) {
           <Text style={styles.buttonText}>Volver al inicio</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1 },
+  scrollContent: { justifyContent: "center", alignItems: "center", paddingVertical: 40, flexGrow: 1 },
   card: {
     backgroundColor: "#fff",
     borderRadius: 20,

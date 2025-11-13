@@ -7,7 +7,7 @@
 // ==========================================================
 
 import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, ScrollView } from "react-native";
 import QuestionCard from "../components/QuestionCard";
 import ResultModal from "../components/ResultModal";
 import { getCombinedPool } from "../services/quizService";
@@ -63,7 +63,8 @@ export default function RealSimScreen({ navigation }) {
     });
 
     await registerStats("realsim", "mixto", score, total);
-    setShowResult(true);
+    // navegar a pantalla de resultados
+    navigation.replace("Result", { score, total, area: "Simulacro General" });
   };
 
   // ==========================================================
@@ -80,7 +81,8 @@ export default function RealSimScreen({ navigation }) {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <View style={styles.headerBox}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerBox}>
         <Text style={styles.header}>🎓 Simulacro Real</Text>
         <Text style={styles.subHeader}>Evaluación Mixta</Text>
         <Text style={styles.progressText}>
@@ -108,12 +110,14 @@ export default function RealSimScreen({ navigation }) {
           }}
         />
       )}
+      </ScrollView>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fafafa" },
+  container: { flex: 1, backgroundColor: "#fafafa" },
+  scrollContent: { padding: 16, paddingBottom: 40, flexGrow: 1 },
   headerBox: { alignItems: "center", marginBottom: 10 },
   header: { fontSize: 22, fontWeight: "bold", color: "#6a0dad" },
   subHeader: { fontSize: 16, color: "#555" },

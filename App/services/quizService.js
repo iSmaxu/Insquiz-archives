@@ -1,85 +1,91 @@
-// App/services/quizService.js
+// App/services/QuizService.js
 // ==========================================================
-// INSQUIZ - Quiz Service (versión 2025 con context textual)
+//  INSQUIZ - QuizService (nuevo modelo con context_text interno)
 // ==========================================================
-// Usa los campos del JSON reindexado, filtra por prefijo (LQ-, CN-, MT-, etc.)
-// y devuelve las preguntas con context = string literal.
-// ==========================================================
-import { shuffleArray } from "./utilsService";
 
-let cachedQuestions = [];
+import InsquizMaster from "../data/InsQUIZ_master.json"; // Ajusta la ruta si es distinta
 
-const SUBJECT_PREFIX = {
-  lectura: "LQ-",
-  matematicas: "MT-",
-  sociales: "CS-",
-  ciencias_naturales: "CN-",
-  ingles: "IN-",
+/**
+ * Estructura esperada de cada pregunta en InsQUIZ_master.json:
+ * {
+ *   "id": "EN-1875",
+ *   "subject": "EN", // o "LC", "MT", etc. según tu convención
+ *   "context_text": "Texto de contexto aquí...",
+ *   "question": "Texto de la pregunta",
+ *   "options": ["A) Opción 1", "B) Opción 2", "C) Opción 3", "D) Opción 4"],
+ *   "answer": "C)",  // Literal de la opción correcta
+ *   "type": "single",
+ *   "skill": "Descripción de la competencia/skill",
+ *   "justification": "Explicación detallada de la respuesta."
+ * }
+ */
+
+// Mapea tus materias a sus códigos internos si hace falta
+const SUBJECT_MAP = {
+  lectura: "LC",
+  matematicas: "MT",
+  sociales: "CS",
+  naturales: "CN",
+  ingles: "EN",
 };
 
-// ==========================================================
-// 🚀 Precarga del banco completo
-// ==========================================================
-export async function preloadQuestions() {
-  try {
-    if (cachedQuestions.length > 0) return;
-    console.log("⏳ Precargando banco maestro...");
-    const data = require("../data/InsQUIZ_master_reindexed.json");
+/**
+ * Devuelve todas las preguntas de una materia específica.
+ * @param {string} subjectKey - Puede ser "LC", "MT", "CS", "CN", "EN" o los alias del SUBJECT_MAP.
+ * @param {object} options - Opciones adicionales { limit, shuffle }
+ */
+export function getQuestionsBySubject(subjectKey, options = {}) {
+  const { limit = null, shuffle = true } = options;
 
-    if (Array.isArray(data)) {
-      cachedQuestions = data;
-    } else {
-      cachedQuestions = Object.values(data).flat();
-    }
+  const normalized =
+    SUBJECT_MAP[subjectKey?.toLowerCase?.()] || subjectKey.toUpperCase?.() || subjectKey;
 
-    console.log(`✅ Preguntas cargadas: ${cachedQuestions.length}`);
-  } catch (error) {
-    console.error("❌ Error cargando preguntas:", error);
-    cachedQuestions = [];
-  }
-}
+  let questions = InsquizMaster.filter((q) => q.subject === normalized);
 
-// ==========================================================
-// 🎯 Filtrar preguntas por materia según prefijo
-// ==========================================================
-export async function getQuestionsBySubject(subjectKey) {
-  if (!cachedQuestions.length) await preloadQuestions();
-
-  const prefix =
-    SUBJECT_PREFIX[subjectKey?.toLowerCase()] ||
-    subjectKey?.toUpperCase()?.substring(0, 2) + "-";
-
-  const filtered = cachedQuestions.filter((q) =>
-    q.id?.startsWith(prefix)
-  );
-
-  if (!filtered.length) {
-    console.warn(`⚠️ No se encontraron preguntas para: ${subjectKey}`);
-    return [];
+  if (shuffle) {
+    questions = shuffleArray(questions);
   }
 
-  const shuffled = shuffleArray(filtered);
-  console.log(`📘 ${filtered.length} preguntas encontradas para ${subjectKey}`);
-  return shuffled;
+  if (limit && questions.length > limit) {
+    questions = questions.slice(0, limit);
+  }
+
+  // Normalizamos campos y aseguramos context_text dentro del objeto
+  return questions.map((q, index) => ({
+    ...q,
+    id: q.id || `${normalized}-${index + 1}`,
+    context_text: q.context_text || null,
+    justification: q.justification || "",
+    options: Array.isArray(q.options) ? q.options : [],
+  }));
 }
 
-// ==========================================================
-// 🧩 Crear quiz con N preguntas aleatorias
-// ==========================================================
-export async function prepareQuizFromSubject(subjectKey, limit = 10) {
-  const data = await getQuestionsBySubject(subjectKey);
-  return data.slice(0, limit);
+/**
+ * Devuelve un set mixto para RealSim: N preguntas por materia
+ * @param {string[]} subjects - Array de materias ["LC","MT","CS","CN","EN"]
+ * @param {number} perSubject - Cantidad de preguntas por materia
+ */
+export function getMixedQuestions(subjects, perSubject = 10) {
+  let all = [];
+
+  subjects.forEach((s) => {
+    const subset = getQuestionsBySubject(s, { limit: perSubject, shuffle: true });
+    all = all.concat(subset);
+  });
+
+  // Mezclamos todo el paquete
+  return shuffleArray(all).map((q, index) => ({
+    ...q,
+    runtimeId: `${q.subject || "X"}-${index + 1}`,
+  }));
 }
 
-// ==========================================================
-// 🔄 Obtener una pregunta aleatoria por prefijo
-// ==========================================================
-export async function getRandomQuestionByPrefix(prefix = "LQ-") {
-  if (!cachedQuestions.length) await preloadQuestions();
-  const filtered = cachedQuestions.filter((q) =>
-    q.id?.startsWith(prefix)
-  );
-  if (!filtered.length) return null;
-  const random = filtered[Math.floor(Math.random() * filtered.length)];
-  return random;
+// Utilidad para barajar arrays
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }

@@ -1,98 +1,77 @@
 // App/navigation/DrawerRoot.js
-import React from "react";
-import {
-  createDrawerNavigator,
-  DrawerContentScrollView,
-  DrawerItem,
-} from "@react-navigation/drawer";
-import { View, Text, Image, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// ==========================================================
+// INSQUIZ - DrawerRoot (Navegador lateral principal)
+// ==========================================================
+// Contiene: HomeStack + Achievements + Profile + Settings + License
+// ==========================================================
 
+import React from "react";
+import { createDrawerNavigator } from "@react-navigation/drawer";
+import { createStackNavigator } from "@react-navigation/stack";
+import { Ionicons } from "@expo/vector-icons";
+
+// 🧩 Pantallas
 import HomeScreen from "../screens/HomeScreen";
+import PracticeMenuScreen from "../screens/PracticeMenuScreen";
+import AdaptivePracticeScreen from "../screens/AdaptivePracticeScreen";
+import QuizScreen from "../screens/QuizScreen";
+import RealSimScreen from "../screens/RealSimScreen";
+import ResultScreen from "../screens/ResultScreen";
 import AchievementsScreen from "../screens/AchievementsScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 import UserSettingsScreen from "../screens/UserSettingsScreen";
+import LicenseScreen from "../screens/LicenseScreen";
 
 const Drawer = createDrawerNavigator();
+const Stack = createStackNavigator();
 
-function CustomDrawerContent(props) {
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("license_key");
-    props.navigation.reset({
-      index: 0,
-      routes: [{ name: "LicenseGate" }],
-    });
-  };
-
+// ==========================================================
+// 🧭 STACK: Home + prácticas internas
+// ==========================================================
+function HomeStack() {
   return (
-    <DrawerContentScrollView {...props}>
-      <View style={styles.profileContainer}>
-        <Image
-          source={require("../../assets/avatar-user.png")}
-          style={styles.avatar}
-        />
-        <Text style={styles.profileName}>Usuario InsQUIZ</Text>
-        <Text style={styles.profileEmail}>Estudiante</Text>
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <DrawerItem
-          label="Pantalla principal"
-          icon={({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          )}
-          onPress={() => props.navigation.navigate("Home")}
-        />
-        <DrawerItem
-          label="Logros"
-          icon={({ color, size }) => (
-            <Ionicons name="trophy-outline" size={size} color={color} />
-          )}
-          onPress={() => props.navigation.navigate("Achievements")}
-        />
-        <DrawerItem
-          label="Configuración"
-          icon={({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          )}
-          onPress={() => props.navigation.navigate("UserSettings")}
-        />
-      </View>
-
-      <DrawerItem
-        label="Cerrar sesión / Cambiar licencia"
-        icon={({ color, size }) => (
-          <Ionicons name="log-out-outline" size={size} color="#b91c1c" />
-        )}
-        labelStyle={{ color: "#b91c1c", fontWeight: "700" }}
-        onPress={handleLogout}
+    <Stack.Navigator
+      initialRouteName="HomeScreen"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="PracticeMenuScreen" component={PracticeMenuScreen} />
+      <Stack.Screen
+        name="AdaptivePracticeScreen"
+        component={AdaptivePracticeScreen}
       />
-    </DrawerContentScrollView>
+      <Stack.Screen name="QuizScreen" component={QuizScreen } />
+      <Stack.Screen 
+      name="RealSimScreen" 
+      component={RealSimScreen} />
+
+      <Stack.Screen name="ResultScreen" component={ResultScreen} />
+    </Stack.Navigator>
   );
 }
 
+// ==========================================================
+// 🧭 DRAWER: Menú lateral global
+// ==========================================================
 export default function DrawerRoot() {
   return (
     <Drawer.Navigator
-      id="DrawerRoot"
-      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      initialRouteName="Home"
       screenOptions={{
-        drawerType: "slide",
-        drawerStyle: { backgroundColor: "#f9f9f9", width: 270 },
+        headerShown: true,
         headerStyle: { backgroundColor: "#6a0dad" },
         headerTintColor: "#fff",
-        drawerActiveBackgroundColor: "#ede0ff",
         drawerActiveTintColor: "#6a0dad",
-        drawerInactiveTintColor: "#333",
+        drawerStyle: { backgroundColor: "#f6f0ff", width: 250 },
       }}
     >
       <Drawer.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeStack}
         options={{
-          title: "Pantalla principal",
-          drawerIcon: ({ color }) => (
-            <Ionicons name="home-outline" size={22} color={color} />
+          title: "🏠 Inicio",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" color={color} size={size} />
           ),
         }}
       />
@@ -100,47 +79,42 @@ export default function DrawerRoot() {
         name="Achievements"
         component={AchievementsScreen}
         options={{
-          title: "Logros",
-          drawerIcon: ({ color }) => (
-            <Ionicons name="trophy-outline" size={22} color={color} />
+          title: "🏅 Logros",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="trophy-outline" color={color} size={size} />
           ),
         }}
       />
       <Drawer.Screen
-        name="UserSettings"
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: "📈 Mi Rendimiento",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Settings"
         component={UserSettingsScreen}
         options={{
-          title: "Configuración",
-          drawerIcon: ({ color }) => (
-            <Ionicons name="settings-outline" size={22} color={color} />
+          title: "⚙️ Configuración",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="License"
+        component={LicenseScreen}
+        options={{
+          title: "🔑 Licencia",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="key-outline" color={color} size={size} />
           ),
         }}
       />
     </Drawer.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  profileContainer: {
-    alignItems: "center",
-    paddingVertical: 25,
-    borderBottomColor: "#ddd",
-    borderBottomWidth: 1,
-    marginBottom: 10,
-  },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 50,
-    marginBottom: 8,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: "#888",
-  },
-});
