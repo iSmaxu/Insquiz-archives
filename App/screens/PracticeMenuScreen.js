@@ -3,7 +3,13 @@
 // INSQUIZ - Menú de Práctica (corregido navegación interna)
 // ==========================================================
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -28,77 +34,94 @@ export default function PracticeMenuScreen({ navigation }) {
 
   return (
     <LinearGradient colors={["#4A148C", "#9b0000"]} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* 🔙 BOTÓN VOLVER AL HOME */}
+<TouchableOpacity
+  style={styles.homeBtn}
+  onPress={() =>
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Home" }],
+    })
+  }
+>
+  <MaterialCommunityIcons name="arrow-left" size={26} color="#fff" />
+</TouchableOpacity>
+
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Modo práctica</Text>
         <Text style={styles.subtitle}>
           Elige cómo quieres practicar tus conocimientos
         </Text>
 
-      {/* Materia específica */}
-      <TouchableOpacity
-        style={styles.optionCard}
-        onPress={() => setShowSubjects(!showSubjects)}
-      >
-        <MaterialCommunityIcons name="book-education" size={42} color="#fff" />
-        <Text style={styles.optionTitle}>Practicar materia específica</Text>
-        <Text style={styles.optionText}>10 preguntas</Text>
-      </TouchableOpacity>
+        {/* Materia específica */}
+        <TouchableOpacity
+          style={styles.optionCard}
+          onPress={() => setShowSubjects(!showSubjects)}
+        >
+          <MaterialCommunityIcons name="book-education" size={42} color="#fff" />
+          <Text style={styles.optionTitle}>Practicar materia específica</Text>
+          <Text style={styles.optionText}>10 preguntas</Text>
+        </TouchableOpacity>
 
-      {/* Modo adaptativo */}
-      <TouchableOpacity
-        style={[styles.optionCard, { backgroundColor: "#0056b3" }]}
-        onPress={() =>
-          navigation.navigate("Home", { screen: "AdaptivePracticeScreen" })
-        }
-      >
-        <MaterialCommunityIcons name="brain" size={42} color="#fff" />
-        <Text style={styles.optionTitle}>Modo Adaptativo</Text>
-        <Text style={styles.optionText}>Entrenamiento inteligente</Text>
-      </TouchableOpacity>
+        {/* Modo adaptativo */}
+        <TouchableOpacity
+          style={[styles.optionCard, { backgroundColor: "#0056b3" }]}
+          onPress={() =>
+            navigation.navigate("Home", { screen: "AdaptivePracticeScreen" })
+          }
+        >
+          <MaterialCommunityIcons name="brain" size={42} color="#fff" />
+          <Text style={styles.optionTitle}>Modo Adaptativo</Text>
+          <Text style={styles.optionText}>Entrenamiento inteligente</Text>
+        </TouchableOpacity>
 
-      {/* Práctica completa */}
-      <TouchableOpacity
-        style={[styles.optionCard, { backgroundColor: "#8e24aa" }]}
-        onPress={() =>
-          navigation.navigate("Home", {
-            screen: "QuizScreen",
-            params: {
-              subject: "all",
-              count: 50,
-              subjectLabel: "Práctica completa",
-            },
-          })
-        }
-      >
-        <MaterialCommunityIcons name="layers-triple" size={42} color="#fff" />
-        <Text style={styles.optionTitle}>Práctica completa</Text>
-        <Text style={styles.optionText}>50 preguntas mezcladas</Text>
-      </TouchableOpacity>
+        {/* Práctica completa */}
+        <TouchableOpacity
+          style={[styles.optionCard, { backgroundColor: "#8e24aa" }]}
+          onPress={() =>
+            navigation.navigate("Home", {
+              screen: "QuizScreen",
+              params: {
+                subject: "all",
+                count: 50,
+                subjectLabel: "Práctica completa",
+              },
+            })
+          }
+        >
+          <MaterialCommunityIcons name="layers-triple" size={42} color="#fff" />
+          <Text style={styles.optionTitle}>Práctica completa</Text>
+          <Text style={styles.optionText}>50 preguntas mezcladas</Text>
+        </TouchableOpacity>
 
-      {/* Lista de materias específicas */}
-      {showSubjects && (
-        <View style={styles.subjectList}>
-          {materias.map((m, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.subjectCard}
-              onPress={() =>
-                navigation.navigate("Home", {
-                  screen: "QuizScreen",
-                  params: {
-                    subject: m.key,
-                    subjectLabel: m.name,
-                    count: 10,
-                  },
-                })
-              }
-            >
-              <MaterialCommunityIcons name={m.icon} size={24} color="#6a0dad" />
-              <Text style={styles.subjectText}>{m.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+        {/* Lista de materias específicas */}
+        {showSubjects && (
+          <View style={styles.subjectList}>
+            {materias.map((m, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.subjectCard}
+                onPress={() =>
+                  navigation.navigate("Home", {
+                    screen: "QuizScreen",
+                    params: {
+                      subject: m.key,
+                      subjectLabel: m.name,
+                      count: 10,
+                    },
+                  })
+                }
+              >
+                <MaterialCommunityIcons name={m.icon} size={24} color="#6a0dad" />
+                <Text style={styles.subjectText}>{m.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -111,6 +134,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
+  /* 🔙 ESTILO DEL BOTÓN HOME */
+  homeBtn: {
+    position: "absolute",
+    top: 48,
+    left: 16,
+    zIndex: 50,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    padding: 8,
+    borderRadius: 50,
+  },
+
   scrollContent: {
     alignItems: "center",
     justifyContent: "center",

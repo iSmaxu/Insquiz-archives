@@ -1,65 +1,117 @@
 // App/screens/QuizScreen.js
 // ==========================================================
-// INSQUIZ - QuizScreen (2025)
+//  INSQUIZ - QuizScreen (10/50 preguntas / práctica normal)
 // ==========================================================
-// Compatible con context textual (context_title / context_text)
-// ==========================================================
-import React, { useContext, useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Animated, ScrollView } from "react-native";
-import { QuizContext } from "../context/QuizContext";
-import { prepareQuizFromSubject } from "../services/quizService";
+
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import QuestionCard from "../components/QuestionCard";
+import { getQuestionsBySubject, getCombinedPool } from "../services/quizService";
 import { saveResultSession } from "../services/resultService";
 import { registerStats } from "../services/statsService";
-import QuestionCard from "../components/QuestionCard";
 
 export default function QuizScreen({ route, navigation }) {
-  const { subjectKey = "lectura" } = route.params || {};
-  const { updateProgress } = useContext(QuizContext);
+  const {
+    subject = "all",
+    count = 10,
+    mode = "practice",
+    subjectLabel,
+  } = route.params || {};
 
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [showResult, setShowResult] = useState(false);
+  const [score, setScore] = useState(0); // correctas reales
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    (async () => {
-      console.log(`📘 Cargando preguntas para ${subjectKey}...`);
-      const data = await prepareQuizFromSubject(subjectKey, 10);
-      setQuestions(data);
+  const headerTitle = subjectLabel || subject.toUpperCase();
 
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    })();
-  }, [subjectKey]);
-
-  const handleNext = async (wasCorrect) => {
-    if (wasCorrect) setScore((s) => s + 1);
-
-    if (index + 1 < questions.length) {
-      setIndex((i) => i + 1);
-    } else {
-      await finishQuiz();
-    }
+  // 🔹 Botón salir
+  const handleExit = () => {
+    Alert.alert(
+      "Salir del Quiz",
+      "¿Deseas salir? Perderás tu progreso.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Salir",
+          style: "destructive",
+          onPress: () => navigation.navigate("PracticeMenuScreen"),
+        },
+      ]
+    );
   };
 
-  const finishQuiz = async () => {
-    const total = questions.length;
-    await saveResultSession({
-      subject: subjectKey,
-      score,
-      total,
-      accuracy: ((score / total) * 100).toFixed(1),
-      date: new Date().toISOString(),
-    });
+  useEffect(() => {
+    let pool;
 
-    await registerStats("practice", subjectKey, score, total);
-    updateProgress(subjectKey, score, total);
-    // navegar a pantalla de resultados para revisión completa
-    navigation.replace("Result", { score, total, area: subjectKey });
+    if (subject === "all") {
+      pool = getCombinedPool(Math.ceil(count / 5));
+    } else {
+      pool = getQuestionsBySubject(subject, { limit: count });
+    }
+
+    setQuestions(pool);
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handleNext = (wasCorrect, selected, _ignored, isLast) => {
+    const newScore = wasCorrect ? score + 1 : score;
+    setScore(newScore);
+
+    if (isLast) {
+      finishQuiz(newScore);
+      return;
+    }
+
+    setIndex((i) => i + 1);
+  };
+
+  const finishQuiz = async (correct) => {
+    try {
+      const total = questions.length;
+      const date = new Date().toISOString();
+
+      // 🔹 Guardar en ResultService unificado (/500)
+      await saveResultSession({
+        mode: mode || "practice",
+        subject,
+        area: subjectLabel || subject,
+        correct,
+        total,
+        date,
+      });
+
+      // 🔹 Registrar estadísticas
+      await registerStats("practice", subject, correct, total);
+
+      // 🔹 Navegar a ResultScreen
+      navigation.replace("ResultScreen", {
+        score: correct,
+        total,
+        area: subjectLabel || subject,
+        mode: mode || "practice",
+      });
+    } catch (error) {
+      console.error("Error finishing quiz:", error);
+      navigation.replace("ResultScreen", {
+        score: correct,
+        total: questions.length,
+        area: subjectLabel || subject,
+      });
+    }
   };
 
   const current = questions[index];
@@ -67,35 +119,28 @@ export default function QuizScreen({ route, navigation }) {
   if (!current) {
     return (
       <View style={styles.center}>
-        <Text style={styles.loading}>Cargando preguntas...</Text>
+        <Text style={styles.loadingText}>Cargando preguntas...</Text>
       </View>
     );
   }
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-        <Text style={styles.headerTitle}>🧩 {subjectKey.toUpperCase()}</Text>
-        <Text style={styles.progress}>
-          Pregunta {index + 1} / {questions.length}
-        </Text>
-      </View>
+      {/* 🔹 BOTÓN SALIR */}
+      <TouchableOpacity style={styles.exitBtn} onPress={handleExit}>
+        <Text style={styles.exitText}>Salir ✖</Text>
+      </TouchableOpacity>
 
-      <QuestionCard
-        question={current}
-        index={index}
-        total={questions.length}
-        onNext={handleNext}
-      />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={styles.header}>Práctica ({headerTitle})</Text>
 
-      {showResult && (
-        <View style={styles.resultBox}>
-          <Text style={styles.resultText}>
-            ✅ Has completado el quiz con {score} / {questions.length} aciertos.
-          </Text>
-        </View>
-      )}
+        <QuestionCard
+          question={current}
+          index={index}
+          total={questions.length}
+          onNext={handleNext}
+          currentScore={score}
+        />
       </ScrollView>
     </Animated.View>
   );
@@ -103,17 +148,30 @@ export default function QuizScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fafafa" },
-  scrollContent: { padding: 16, paddingBottom: 40, flexGrow: 1 },
-  header: { alignItems: "center", marginBottom: 8 },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#6a0dad" },
-  progress: { color: "#777", fontSize: 14 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loading: { fontSize: 16, color: "#6a0dad" },
-  resultBox: {
-    backgroundColor: "#eee",
-    marginTop: 12,
-    padding: 10,
-    borderRadius: 8,
+
+  exitBtn: {
+    position: "absolute",
+    top: 45,
+    right: 14,
+    zIndex: 50,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,0,0,0.12)",
+    borderRadius: 12,
   },
-  resultText: { textAlign: "center", fontWeight: "bold", color: "#333" },
+  exitText: {
+    color: "#d62828",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+
+  header: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#6a0dad",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { color: "#6a0dad", fontSize: 16 },
 });

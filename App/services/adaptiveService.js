@@ -1,163 +1,79 @@
 // App/services/adaptiveService.js
 // ==========================================================
-// INSQUIZ - Adaptive Service (versión 2025 FINAL depurada)
-// ==========================================================
-// Genera preguntas adaptativas SIN depender de quizService.
-// Filtra solo las que tengan contexto REAL en los textos locales.
+//  INSQUIZ - Adaptive Service (Versión FINAL 2025)
 // ==========================================================
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import masterData from "../data/InsQUIZ_master_reindexed.json";
+import { InsquizMaster } from "./quizService";
 
-// Contextos locales
-import textosLectura from "../data/textos/textos_lectura.json";
-import textosMatematicas from "../data/textos/textos_matematicas.json";
-import textosSociales from "../data/textos/textos_ciencias_sociales.json";
-import textosNaturales from "../data/textos/textos_ciencias_naturales.json";
-import textosIngles from "../data/textos/textos_ingles.json";
+// Clasificar por dificultad real
+const EASY = InsquizMaster.filter((q) => q.difficulty === "easy");
+const MEDIUM = InsquizMaster.filter((q) => q.difficulty === "medium");
+const HARD = InsquizMaster.filter((q) => q.difficulty === "hard");
 
-const TEXTOS_MAP = {
-  lectura: textosLectura,
-  matematicas: textosMatematicas,
-  sociales: textosSociales,
-  naturales: textosNaturales,
-  ingles: textosIngles,
-};
+const FALLBACK = MEDIUM.length ? MEDIUM : InsquizMaster;
 
-// ==========================================================
-// 🔹 Verifica si el contexto existe en los textos reales
-// ==========================================================
-function contextExists(subjectKey, contextTitle) {
-  if (!contextTitle || !subjectKey) return false;
-  const textos = TEXTOS_MAP[subjectKey] || [];
-  const found = textos.some(
-    (t) => t.context_title?.trim() === contextTitle.trim()
-  );
-  return found;
+// Elegir aleatorio
+function pickRandom(pool) {
+  const p = pool.length ? pool : FALLBACK;
+  return p[Math.floor(Math.random() * p.length)];
 }
 
 // ==========================================================
-// 🔹 Fusión de preguntas con contextos
+// Generar el examen adaptativo
 // ==========================================================
-function mergeQuestions(subjectKey, questions) {
-  const textos = TEXTOS_MAP[subjectKey] || [];
-  return questions.map((q, i) => {
-    const contexto =
-      q.context ||
-      (textos[Math.floor(Math.random() * textos.length)]?.texto ?? "");
-    return {
-      id: q.id || `${subjectKey}-${i + 1}`,
-      subject: subjectKey,
-      context: contexto,
-      question: q.question || "Sin texto de pregunta.",
-      options: q.options || [],
-      answer: q.answer || "",
-      justification: q.justification || "Sin justificación disponible.",
-      skill: q.skill || "Sin registro de habilidad.",
-      difficulty: q.difficulty || "medium",
-    };
-  });
-}
-
-// ==========================================================
-// 🧠 Generador adaptativo (solo contextos válidos y existentes)
-// ==========================================================
-export function generateAdaptiveQuizLocal(startLevel = "medium", total = 20) {
-  const allSubjects = Object.keys(masterData);
-  const combined = [];
-
-  for (const subject of allSubjects) {
-    const merged = mergeQuestions(subject, masterData[subject]);
-    combined.push(...merged);
-  }
-
-  // ❗ Filtrar solo las preguntas que tengan contexto válido y real
-  const validQuestions = combined.filter(
-    (q) =>
-      q.context &&
-      typeof q.context === "string" &&
-      q.context.trim().length > 5 &&
-      !q.context.includes("Texto no disponible") &&
-      !q.context.includes("Sin texto") &&
-      contextExists(q.subject, q.context)
-  );
-
-  // Clasificación por dificultad
-  const easy = validQuestions.filter((q) => q.difficulty === "easy");
-  const medium = validQuestions.filter((q) => q.difficulty === "medium");
-  const hard = validQuestions.filter((q) => q.difficulty === "hard");
-
+export function generateAdaptiveQuizLocal(start = "medium", total = 20) {
   let quiz = [];
-  let currentLevel = startLevel;
+  const used = new Set();
+  let level = start;
 
-  const getNext = (level) => {
-    const pool =
-      level === "easy"
-        ? easy
-        : level === "hard"
-        ? hard.length
-          ? hard
-          : medium
-        : medium;
-    return pool[Math.floor(Math.random() * pool.length)];
-  };
-
-  // 🔁 Generación segura
   for (let i = 0; i < total; i++) {
-    let next = getNext(currentLevel);
-    let attempts = 0;
-    while (
-      (!next?.context ||
-        next.context.trim() === "" ||
-        !contextExists(next.subject, next.context)) &&
-      attempts < 10
-    ) {
-      next = getNext(currentLevel);
-      attempts++;
+    let pool =
+      level === "easy" ? EASY :
+      level === "hard" ? HARD :
+      MEDIUM;
+
+    let q = pickRandom(pool);
+    let tries = 0;
+
+    while (used.has(q.id) && tries < 20) {
+      q = pickRandom(pool);
+      tries++;
     }
-    if (
-      next?.context &&
-      next.context.trim().length > 5 &&
-      contextExists(next.subject, next.context)
-    ) {
-      quiz.push(next);
-    }
+
+    used.add(q.id);
+    quiz.push(q);
   }
 
-  console.log(`✅ Generadas ${quiz.length} preguntas con contexto real.`);
-  return { quiz, currentLevel };
+  return { quiz, level };
 }
 
 // ==========================================================
-// 💾 Estadísticas locales adaptativas
+// Guardar estadísticas
 // ==========================================================
 export async function saveAdaptiveStats(score, total) {
   try {
-    const saved = await AsyncStorage.getItem("adaptiveStats");
-    const prev = saved
-      ? JSON.parse(saved)
-      : { sessions: 0, totalScore: 0, totalQuestions: 0 };
+    const raw = await AsyncStorage.getItem("adaptiveStats");
+    const prev = raw ? JSON.parse(raw) : { sessions: 0, totalScore: 0, totalQuestions: 0 };
 
     const updated = {
       sessions: prev.sessions + 1,
       totalScore: prev.totalScore + score,
       totalQuestions: prev.totalQuestions + total,
-      lastResult: { score, total, date: new Date().toISOString() },
+      last: { score, total, date: new Date().toISOString() },
     };
 
     await AsyncStorage.setItem("adaptiveStats", JSON.stringify(updated));
-    return updated;
-  } catch (e) {
-    console.warn("Error guardando adaptive stats:", e);
+  } catch (err) {
+    console.log("Adaptive save error:", err);
   }
 }
 
 export async function getAdaptiveStats() {
   try {
-    const data = await AsyncStorage.getItem("adaptiveStats");
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
-    console.warn("Error leyendo adaptive stats:", e);
+    const raw = await AsyncStorage.getItem("adaptiveStats");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
     return null;
   }
 }
@@ -165,8 +81,5 @@ export async function getAdaptiveStats() {
 export async function resetAdaptiveStats() {
   try {
     await AsyncStorage.removeItem("adaptiveStats");
-    console.log("🧹 Estadísticas adaptativas reseteadas.");
-  } catch (e) {
-    console.warn("Error al resetear adaptive stats:", e);
-  }
+  } catch {}
 }

@@ -2,8 +2,6 @@
 // ==========================================================
 // INSQUIZ - DrawerRoot (Navegador lateral principal)
 // ==========================================================
-// Contiene: HomeStack + Achievements + Profile + Settings + License
-// ==========================================================
 
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -16,6 +14,7 @@ import PracticeMenuScreen from "../screens/PracticeMenuScreen";
 import AdaptivePracticeScreen from "../screens/AdaptivePracticeScreen";
 import QuizScreen from "../screens/QuizScreen";
 import RealSimScreen from "../screens/RealSimScreen";
+import RealSimReviewScreen from "../screens/RealSimReviewScreen";
 import ResultScreen from "../screens/ResultScreen";
 import AchievementsScreen from "../screens/AchievementsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -26,7 +25,7 @@ const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
 // ==========================================================
-// 🧭 STACK: Home + prácticas internas
+// STACK PRINCIPAL
 // ==========================================================
 function HomeStack() {
   return (
@@ -36,22 +35,17 @@ function HomeStack() {
     >
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
       <Stack.Screen name="PracticeMenuScreen" component={PracticeMenuScreen} />
-      <Stack.Screen
-        name="AdaptivePracticeScreen"
-        component={AdaptivePracticeScreen}
-      />
-      <Stack.Screen name="QuizScreen" component={QuizScreen } />
-      <Stack.Screen 
-      name="RealSimScreen" 
-      component={RealSimScreen} />
-
+      <Stack.Screen name="AdaptivePracticeScreen" component={AdaptivePracticeScreen} />
+      <Stack.Screen name="QuizScreen" component={QuizScreen} />
+      <Stack.Screen name="RealSimScreen" component={RealSimScreen} />
+      <Stack.Screen name="RealSimReviewScreen" component={RealSimReviewScreen} />
       <Stack.Screen name="ResultScreen" component={ResultScreen} />
     </Stack.Navigator>
   );
 }
 
 // ==========================================================
-// 🧭 DRAWER: Menú lateral global
+// DRAWER
 // ==========================================================
 export default function DrawerRoot() {
   return (
@@ -65,6 +59,7 @@ export default function DrawerRoot() {
         drawerStyle: { backgroundColor: "#f6f0ff", width: 250 },
       }}
     >
+      {/* 🔥 IMPORTANTE: AQUÍ EL NOMBRE DEBE SER "Home" */}
       <Drawer.Screen
         name="Home"
         component={HomeStack}
@@ -75,6 +70,7 @@ export default function DrawerRoot() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="Achievements"
         component={AchievementsScreen}
@@ -85,6 +81,7 @@ export default function DrawerRoot() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="Profile"
         component={ProfileScreen}
@@ -95,6 +92,7 @@ export default function DrawerRoot() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="Settings"
         component={UserSettingsScreen}
@@ -105,6 +103,7 @@ export default function DrawerRoot() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="License"
         component={LicenseScreen}

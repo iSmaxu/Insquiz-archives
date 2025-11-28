@@ -1,256 +1,334 @@
 // App/components/QuestionCard.js
 // ==========================================================
-//  INSQUIZ - QuestionCard (usa context_text interno)
+//  INSQUIZ - QuestionCard PRO
+// ==========================================================
+// - Muestra contexto, pregunta y opciones
+// - Marca en verde/rojo según acierto
+// - Resalta la correcta cuando fallas
+// - Vibra fuerte si te equivocas
+// - Muestra justificación
+// - NO avanza solo: aparece botón "Siguiente" tras 250 ms
+// - Envía skill al onNext: onNext(wasCorrect, selectedText, skill, isLast)
 // ==========================================================
 
-import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Vibration, Animated } from "react-native";
-
-const NEXT_DELAY_MS = 250;
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Vibration,
+} from "react-native";
 
 export default function QuestionCard({
   question,
-  questionIndex,
-  totalQuestions,
-  onAnswer,       // (isCorrect, selectedOption) => void
-  onNext,         // se llama cuando se pulsa el botón "Siguiente"
+  index,
+  total,
+  onNext,
+  currentScore,
 }) {
   const [selected, setSelected] = useState(null);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
+  const [wasCorrect, setWasCorrect] = useState(null); // true/false
+  const [locked, setLocked] = useState(false);
   const [showNext, setShowNext] = useState(false);
 
-  const nextTimer = useRef(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  if (!question) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.loadingText}>Cargando pregunta...</Text>
+      </View>
+    );
+  }
 
-  useEffect(() => {
-    // Resetear estado cuando cambia la pregunta
-    setSelected(null);
-    setIsAnswered(false);
-    setIsCorrect(null);
-    setShowNext(false);
-    fadeAnim.setValue(0);
-    if (nextTimer.current) {
-      clearTimeout(nextTimer.current);
-    }
-  }, [question?.id]);
+  const options = question.options || [];
+  const correctText = (question.answer || "").trim();
+  const skill = question.skill || "Habilidad no definida";
 
-  useEffect(() => {
-    if (showNext) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showNext]);
+  const isLast = index + 1 >= total;
 
-  const handleOptionPress = (opt) => {
-    if (isAnswered) return;
+  const handlePress = (opt) => {
+    if (locked) return;
 
-    const correct = question.answer?.trim?.() === opt.trim?.();
-    setSelected(opt);
-    setIsAnswered(true);
-    setIsCorrect(correct);
+    const chosenText = (opt || "").trim();
+    const correct = chosenText === correctText;
+
+    console.log(
+      "[handlePress] chosenText=",
+      chosenText,
+      "correctText=",
+      correctText,
+      "correct=",
+      correct
+    );
+
+    setSelected(chosenText);
+    setWasCorrect(correct);
+    setLocked(true);
 
     if (!correct) {
-      // Vibración fuerte al fallo
-      Vibration.vibrate([0, 200, 100, 200]);
+      // Vibración fuerte al fallar
+      Vibration.vibrate(250);
     }
 
-    // Avisamos al padre
-    onAnswer?.(correct, opt);
-
-    // Mostrar botón "Siguiente" después de 250 ms
-    nextTimer.current = setTimeout(() => setShowNext(true), NEXT_DELAY_MS);
+    // Mostrar botón Siguiente tras 250 ms
+    setTimeout(() => {
+      setShowNext(true);
+    }, 250);
   };
 
-  const getOptionStyle = (opt) => {
-    if (!isAnswered) return styles.option;
+  const handleNext = () => {
+    if (wasCorrect === null) return;
 
-    const correctOpt = question.answer?.trim?.();
-    const isSelectedOpt = selected === opt;
-    const isCorrectOpt = correctOpt === opt;
+    onNext(
+      wasCorrect,
+      selected,
+      skill,    // 🔹 enviamos la skill de la pregunta
+      isLast
+    );
 
-    // Correcta seleccionada → verde
-    if (isSelectedOpt && isCorrectOpt) {
-      return [styles.option, styles.optionCorrect];
-    }
-
-    // Incorrecta seleccionada → roja
-    if (isSelectedOpt && !isCorrectOpt) {
-      return [styles.option, styles.optionIncorrect];
-    }
-
-    // Correcta (aunque no haya sido seleccionada) → verde tenue
-    if (!isSelectedOpt && isCorrectOpt) {
-      return [styles.option, styles.optionCorrectSoft];
-    }
-
-    return styles.option;
+    // El reset visual lo hará el cambio de pregunta desde el padre
+    setSelected(null);
+    setWasCorrect(null);
+    setLocked(false);
+    setShowNext(false);
   };
 
-  const getQuestionWrapperStyle = () => {
-    if (!isAnswered) return styles.questionWrapper;
-    if (isCorrect) return [styles.questionWrapper, styles.questionWrapperCorrect];
-    return [styles.questionWrapper, styles.questionWrapperIncorrect];
+  const renderOptionStyle = (optText) => {
+    const text = (optText || "").trim();
+
+    if (!locked) {
+      // Estado normal
+      return {
+        container: styles.optionBtn,
+        text: styles.optionText,
+      };
+    }
+
+    // Después de contestar...
+    const isSelected = text === selected;
+    const isCorrectOpt = text === correctText;
+
+    // Caso: opción seleccionada
+    if (isSelected) {
+      if (wasCorrect) {
+        return {
+          container: [styles.optionBtn, styles.optCorrect],
+          text: [styles.optionText, styles.optCorrectText],
+        };
+      } else {
+        return {
+          container: [styles.optionBtn, styles.optWrong],
+          text: [styles.optionText, styles.optWrongText],
+        };
+      }
+    }
+
+    // Caso: opción correcta (cuando fallaste)
+    if (!wasCorrect && isCorrectOpt) {
+      return {
+        container: [styles.optionBtn, styles.optCorrectSoft],
+        text: [styles.optionText, styles.optCorrectText],
+      };
+    }
+
+    // Opción normal
+    return {
+      container: styles.optionBtn,
+      text: styles.optionText,
+    };
   };
 
   return (
-    <View style={styles.container}>
-      {/* Índice / Progreso */}
-      <Text style={styles.counter}>
-        Pregunta {questionIndex + 1} de {totalQuestions}
+    <View style={styles.card}>
+      {/* Encabezado mini */}
+      <Text style={styles.miniHeader}>
+        Pregunta {index + 1} de {total}
       </Text>
 
-      {/* Contexto (si existe) */}
+      {/* Contexto */}
       {question.context_text ? (
         <View style={styles.contextBox}>
-          <Text style={styles.contextTitle}>Texto</Text>
+          <Text style={styles.contextTitle}>Texto:</Text>
           <Text style={styles.contextText}>{question.context_text}</Text>
         </View>
       ) : null}
 
       {/* Pregunta */}
-      <View style={getQuestionWrapperStyle()}>
-        <Text style={styles.questionText}>{question.question}</Text>
-      </View>
+      <Text style={styles.questionText}>{question.question}</Text>
 
       {/* Opciones */}
-      <View style={styles.optionsContainer}>
-        {question.options?.map((opt, idx) => (
-          <TouchableOpacity
-            key={`${question.id}-opt-${idx}`}
-            style={getOptionStyle(opt)}
-            onPress={() => handleOptionPress(opt)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.optionText}>{opt}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.optionsBox}>
+        {options.map((opt, i) => {
+          const optText = typeof opt === "string" ? opt : String(opt);
+          const optStyles = renderOptionStyle(optText);
+
+          return (
+            <TouchableOpacity
+              key={i}
+              style={optStyles.container}
+              onPress={() => handlePress(optText)}
+              activeOpacity={0.8}
+            >
+              <Text style={optStyles.text}>{optText}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* Justificación (solo cuando ya respondió) */}
-      {isAnswered && question.justification ? (
-        <View style={styles.justificationBox}>
-          <Text style={styles.justificationTitle}>Justificación</Text>
-          <Text style={styles.justificationText}>{question.justification}</Text>
+      {/* Justificación */}
+      {locked && question.justification ? (
+        <View style={styles.justBox}>
+          <Text style={styles.justTitle}>Justificación</Text>
+          <Text style={styles.justText}>{question.justification}</Text>
         </View>
       ) : null}
 
-      {/* Botón siguiente con fade-in */}
+      {/* Botón Siguiente */}
       {showNext && (
-        <Animated.View style={{ opacity: fadeAnim }}>
-          <TouchableOpacity style={styles.nextButton} onPress={onNext} activeOpacity={0.85}>
-            <Text style={styles.nextButtonText}>Siguiente</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        <TouchableOpacity
+          style={styles.nextBtn}
+          onPress={handleNext}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.nextText}>
+            {isLast ? "Ver resultados" : "Siguiente"}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 }
 
+// ==========================================================
+// 🎨 Estilos
+// ==========================================================
 const styles = StyleSheet.create({
-  container: {
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
     padding: 16,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
-  counter: {
-    fontSize: 14,
-    color: "#aaa",
+
+  miniHeader: {
+    fontSize: 13,
+    color: "#777",
+    marginBottom: 4,
+  },
+  skillTag: {
+    alignSelf: "flex-start",
+    fontSize: 12,
+    color: "#6a0dad",
     marginBottom: 8,
+    backgroundColor: "#f3e5f5",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
+
   contextBox: {
-    backgroundColor: "#1c1c1e",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: "#f4f4ff",
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   contextTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#ffb74d",
+    color: "#6a0dad",
     marginBottom: 4,
   },
   contextText: {
     fontSize: 14,
-    color: "#e0e0e0",
+    color: "#444",
   },
-  questionWrapper: {
-    backgroundColor: "#222",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  questionWrapperCorrect: {
-    borderColor: "#4caf50",
-  },
-  questionWrapperIncorrect: {
-    borderColor: "#f44336",
-  },
+
   questionText: {
     fontSize: 16,
-    color: "#fff",
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 12,
   },
-  optionsContainer: {
+
+  optionsBox: {
     marginTop: 4,
-    marginBottom: 8,
   },
-  option: {
-    backgroundColor: "#333",
+  optionBtn: {
+    backgroundColor: "#fafafa",
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    marginBottom: 8,
+    marginVertical: 5,
     borderWidth: 1,
-    borderColor: "transparent",
-  },
-  optionCorrect: {
-    backgroundColor: "#1b5e20",
-    borderColor: "#4caf50",
-  },
-  optionCorrectSoft: {
-    backgroundColor: "#1b5e2033",
-    borderColor: "#4caf50aa",
-  },
-  optionIncorrect: {
-    backgroundColor: "#5d1c1c",
-    borderColor: "#f44336",
+    borderColor: "#e0e0e0",
   },
   optionText: {
-    color: "#fff",
-    fontSize: 15,
-  },
-  justificationBox: {
-    backgroundColor: "#111",
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#444",
-  },
-  justificationTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#ffb74d",
+    color: "#333",
+  },
+
+  // Estados correcto / incorrecto
+  optCorrect: {
+    backgroundColor: "#d6f5dd",
+    borderColor: "#4caf50",
+  },
+  optCorrectSoft: {
+    backgroundColor: "#e7f8ec",
+    borderColor: "#66bb6a",
+  },
+  optWrong: {
+    backgroundColor: "#ffe0e0",
+    borderColor: "#f44336",
+  },
+  optCorrectText: {
+    color: "#1b5e20",
+    fontWeight: "700",
+  },
+  optWrongText: {
+    color: "#b71c1c",
+    fontWeight: "700",
+  },
+
+  justBox: {
+    marginTop: 14,
+    padding: 10,
+    backgroundColor: "#f7f7f7",
+    borderRadius: 10,
+  },
+  justTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#555",
     marginBottom: 4,
   },
-  justificationText: {
-    fontSize: 14,
-    color: "#ddd",
+  justText: {
+    fontSize: 13,
+    color: "#444",
   },
-  nextButton: {
-    marginTop: 12,
-    backgroundColor: "#1976d2",
-    paddingVertical: 10,
-    borderRadius: 999,
+
+  nextBtn: {
+    marginTop: 16,
+    backgroundColor: "#6a0dad",
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
   },
-  nextButtonText: {
+  nextText: {
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  center: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    color: "#6a0dad",
   },
 });

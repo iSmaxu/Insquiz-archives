@@ -1,0 +1,43 @@
+{
+  // ❌ DESACTIVAR análisis de node_modules (importante)
+  "files.watcherExclude": {
+    "**/node_modules": true,
+    "**/android": false
+  },
+  "files.exclude": {
+    "**/node_modules": true
+  },
+
+  // ❌ EVITAR errores falsos de Java
+  "java.configuration.excludeFolders": [
+    "**/node_modules",
+    "**/android/app/src/debug",
+    "**/android/app/src/profile",
+    "**/android/app/build"
+  ],
+  "java.compile.nullAnalysis.mode": "disabled",
+
+  // ❌ Evitar errores falsos al detectar proyectos Gradle
+  "java.import.gradle.enabled": false,
+
+  // ❌ VS Code no debe tratar node_modules como proyectos Java/C++
+  "C_Cpp.default.configurationProvider": "null",
+
+  // ❌ Desactivar IntelliSense automático en C++
+  "C_Cpp.intelliSenseEngine": "disabled",
+
+  // ✔ Incluir solo TU carpeta cpp
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/android/app/src/main/cpp",
+    "${workspaceFolder}/android/app/src/main/cpp/llama.cpp"
+  ],
+
+  // ✔ Permitir coloreado básico sin análisis (recomendado para RN)
+  "C_Cpp.errorSquiggles": "disabled",
+
+  // ✔ No leer includes del sistema porque NDK los provee en build, VS Code no los ve
+  "C_Cpp.default.compilerPath": "",
+
+  // Opcional: limpiar errores visuales
+  "C_Cpp.default.intelliSenseMode": "linux-gcc-x64"
+}

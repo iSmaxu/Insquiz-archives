@@ -1,122 +1,226 @@
+// App/screens/ResultScreen.js
 // ==========================================================
-// INSQUIZ - ResultScreen (corregido con animación sobre 500)
+//  INSQUIZ - ResultScreen v3 (unificado + score/500)
 // ==========================================================
-import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { Ionicons } from "@expo/vector-icons";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
+import { calculateScore500 } from "../services/resultService";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function ResultScreen({ route, navigation }) {
-  const { score = 0, total = 0, area = "Práctica" } = route.params || {};
+  const { score = 0, total = 0, area = "Resultado", mode = "practice" } =
+    route.params || {};
 
-  const safeTotal = total > 0 ? total : 1;
-  const percentage = (score / safeTotal) * 100;
-  const scaledScore = Math.round((score / safeTotal) * 500);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  // 📌 Calcular puntaje sobre 500 (lineal)
+  const score500 = calculateScore500(score, total);
+  const percent = ((score / total) * 100).toFixed(1);
 
   useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: percentage,
-      duration: 2000,
-      useNativeDriver: false,
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
     }).start();
-  }, [percentage]);
+  }, []);
 
-  // Círculo animado (por porcentaje)
-  const strokeDasharray = 2 * Math.PI * 80;
-  const strokeDashoffset = animatedValue.interpolate({
-    inputRange: [0, 100],
-    outputRange: [strokeDasharray, 0],
-  });
+  // 🟣 Repetir sesión (mismo modo)
+  const handleRepeat = () => {
+    if (mode === "realsim") {
+      return navigation.replace("RealSimScreen");
+    }
+    if (mode === "adaptive") {
+      return navigation.replace("AdaptivePracticeScreen");
+    }
+    // default → practice
+    navigation.goBack();
+  };
+
+  // 🟣 Revisar (solo Simulacro Real)
+  const canReview = mode === "realsim";
 
   return (
-    <LinearGradient colors={["#4A148C", "#b40000"]} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-        <Text style={styles.title}>Resultado de {area}</Text>
-
-        {/* Círculo de animación */}
-        <View style={styles.chartContainer}>
-          <Svg width="200" height="200" viewBox="0 0 200 200">
-            <Defs>
-              <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#8e24aa" />
-                <Stop offset="100%" stopColor="#b40000" />
-              </SvgGradient>
-            </Defs>
-
-            {/* Fondo gris */}
-            <Circle cx="100" cy="100" r="80" stroke="#eee" strokeWidth="12" fill="none" />
-
-            {/* Progreso animado */}
-            <AnimatedCircle
-              cx="100"
-              cy="100"
-              r="80"
-              stroke="url(#grad)"
-              strokeWidth="12"
-              strokeDasharray={strokeDasharray}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              fill="none"
-            />
-          </Svg>
-
-          {/* Texto de puntaje */}
-          <Animated.Text style={styles.percentageText}>
-            {Math.round(scaledScore)} / 500
-          </Animated.Text>
-        </View>
-
-        <Text style={styles.resultText}>
-          Obtuviste {score} de {total} preguntas correctas
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      {/* Encabezado */}
+      <View style={styles.headerBox}>
+        <Text style={styles.modeText}>{area}</Text>
+        <Text style={styles.subText}>
+          {mode === "realsim"
+            ? "Simulacro Real"
+            : mode === "adaptive"
+            ? "Modo Adaptativo"
+            : "Modo Práctica"}
         </Text>
+      </View>
 
-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Home")}>
-          <Ionicons name="home-outline" size={20} color="#fff" />
-          <Text style={styles.buttonText}>Volver al inicio</Text>
+      {/* PUNTAJE SOBRE 500 */}
+      <View style={styles.scoreCard}>
+        <Text style={styles.score500}>{score500}</Text>
+        <Text style={styles.over500}>/500</Text>
+        <Text style={styles.percent}>{percent}% de acierto</Text>
+      </View>
+
+      {/* Detalles */}
+      <View style={styles.detailBox}>
+        <Text style={styles.detailText}>
+          <Text style={styles.bold}>{score}</Text> correctas de{" "}
+          <Text style={styles.bold}>{total}</Text>
+        </Text>
+      </View>
+
+      {/* Botones */}
+      <View style={styles.btnGroup}>
+        {/* Repetir */}
+        <TouchableOpacity style={styles.btnPrimary} onPress={handleRepeat}>
+          <Ionicons name="refresh" size={22} color="#fff" />
+          <Text style={styles.btnPrimaryText}>Repetir</Text>
+        </TouchableOpacity>
+
+        {/* Revisar */}
+        {canReview && (
+          <TouchableOpacity
+            style={[styles.btnPrimary, { backgroundColor: "#0056b3" }]}
+            onPress={() => navigation.navigate("RealSimReviewScreen")}
+          >
+            <MaterialCommunityIcons
+              name="file-search-outline"
+              size={22}
+              color="#fff"
+            />
+            <Text style={styles.btnPrimaryText}>Revisar</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Volver al inicio */}
+        <TouchableOpacity
+          style={styles.btnSecondary}
+          onPress={() =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Home" }],
+            })
+          }
+        >
+          <Ionicons name="home-outline" size={22} color="#6a0dad" />
+          <Text style={styles.btnSecondaryText}>Inicio</Text>
         </TouchableOpacity>
       </View>
-      </ScrollView>
-    </LinearGradient>
+    </Animated.View>
   );
 }
 
+// ==========================================================
+// 🎨 Estilos
+// ==========================================================
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { justifyContent: "center", alignItems: "center", paddingVertical: 40, flexGrow: 1 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
+  container: {
+    flex: 1,
+    backgroundColor: "#fafafa",
+    padding: 20,
+    paddingTop: 70,
+  },
+
+  headerBox: {
     alignItems: "center",
-    width: "85%",
+    marginBottom: 25,
+  },
+  modeText: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#6a0dad",
+  },
+  subText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 4,
+  },
+
+  scoreCard: {
+    alignItems: "center",
+    backgroundColor: "#6a0dad",
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderRadius: 18,
     shadowColor: "#000",
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  title: { fontSize: 22, fontWeight: "700", color: "#6a0dad", marginBottom: 20 },
-  chartContainer: { alignItems: "center", justifyContent: "center" },
-  percentageText: {
-    position: "absolute",
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#6a0dad",
-    textAlign: "center",
+  score500: {
+    fontSize: 70,
+    fontWeight: "900",
+    color: "#fff",
+    marginBottom: -8,
   },
-  resultText: { fontSize: 16, color: "#444", marginVertical: 16, textAlign: "center" },
-  button: {
-    flexDirection: "row",
-    backgroundColor: "#6a0dad",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+  over500: {
+    fontSize: 22,
+    color: "#e5e5e5",
+    marginBottom: 8,
+  },
+  percent: {
+    fontSize: 18,
+    color: "#fff",
+    opacity: 0.9,
+  },
+
+  detailBox: {
+    marginTop: 26,
     alignItems: "center",
   },
-  buttonText: { color: "#fff", marginLeft: 8, fontWeight: "600", fontSize: 16 },
+  detailText: {
+    fontSize: 18,
+    color: "#444",
+  },
+  bold: {
+    fontWeight: "bold",
+    color: "#6a0dad",
+  },
+
+  btnGroup: {
+    marginTop: 40,
+    alignItems: "center",
+    gap: 14,
+  },
+
+  btnPrimary: {
+    backgroundColor: "#6a0dad",
+    width: "75%",
+    paddingVertical: 14,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  btnPrimaryText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  btnSecondary: {
+    borderWidth: 2,
+    borderColor: "#6a0dad",
+    width: "75%",
+    paddingVertical: 12,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  btnSecondaryText: {
+    fontSize: 16,
+    color: "#6a0dad",
+    fontWeight: "700",
+  },
 });

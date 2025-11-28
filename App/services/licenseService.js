@@ -175,3 +175,17 @@ export async function activateLicenseLocal(licenseKey) {
     return { ok: false, error: e.message };
   }
 }
+
+// ==========================================================
+// 🔹 Función simplificada usada por BootScreen
+// ==========================================================
+export async function validateLicense() {
+  try {
+    const key = await getLicenseToken(); // Obtiene la licencia local
+    return await validateLicenseOnlineDetailed(key); // Valida en Firebase
+  } catch (error) {
+    console.error("validateLicense() ERROR:", error);
+    return { valid: false, reason: "Error interno de licencia" };
+  }
+}
+
