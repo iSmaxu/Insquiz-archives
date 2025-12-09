@@ -1,9 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:   # ← se ejecuta manualmente desde GitHub
-  push:
-    branches: [ main ] # opcional
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,34 +9,31 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install EAS CLI
-        run: npm install --global eas-cli
+        run: npm install -g eas-cli
 
       - name: Install dependencies
         run: npm install
 
-      - name: Configure EAS
+      - name: Login using EXPO_TOKEN
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas telemetry off
-          eas whoami || echo "Expo Auth OK"
+        run: eas whoami || echo "Expo Auth OK"
 
-      - name: Build APK (LOCAL mode)
+      - name: Build (APK)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas build --platform android --profile preview --non-interactive --local
+        run: eas build --platform android --profile preview --non-interactive
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          name: insquiz-apk
-          path: ./build/*.apk
+          name: eas-build-artifact
+          path: build
