@@ -1,24 +1,76 @@
-// App/screens/AdaptivePracticeScreen.js (FIX)
 // ==========================================================
-//  INSQUIZ - Modo Adaptativo (20 preguntas dinámicas)
+//  INSQUIZ - Modo Adaptativo REAL (Difficulty Engine v2)
+//  Con ScrollWrapper (barra sutil tipo Google)
 // ==========================================================
 
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Animated } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
+
 import QuestionCard from "../components/QuestionCard";
-import { generateAdaptiveQuizLocal, saveAdaptiveStats } from "../services/adaptiveService";
+import masterQuestions from "../data/insquiz_master";
+
+import { useOffline } from "../context/OfflineContext";
+
+import {
+  XP_Add,
+  XP_PER_CORRECT,
+  XP_SESSION_BONUS_10,
+} from "../engines/XP_Engine";
+
+import ScrollWrapper from "../components/ScrollWrapper"; // ← NUEVO
+
+// ==========================================================
+//  SISTEMA DE DIFICULTAD ADAPTATIVA
+// ==========================================================
+
+// Niveles permitidos
+const LEVELS = ["easy", "medium", "hard"];
+
+// Función para obtener preguntas por dificultad
+function getQuestionsByDifficulty(level, usedIds = []) {
+  const pool = masterQuestions.filter(
+    (q) =>
+      q.difficulty &&
+      q.difficulty.toLowerCase() === level &&
+      !usedIds.includes(q.id)
+  );
+
+  if (!pool.length) return null;
+
+  // Mezclar
+  return pool.sort(() => Math.random() - 0.5);
+}
+
+// ==========================================================
+//  SCREEN PRINCIPAL
+// ==========================================================
 
 export default function AdaptivePracticeScreen({ navigation }) {
+  const { setQuizActive } = useOffline();
 
-  const [state, setState] = useState(() => generateAdaptiveQuizLocal("medium", 20));
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const [level, setLevel] = useState("medium"); // nivel inicial
+  const [usedIds, setUsedIds] = useState([]);   // para no repetir preguntas
+  const [streakCorrect, setStreakCorrect] = useState(0);
+  const [streakWrong, setStreakWrong] = useState(0);
+  const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [level, setLevel] = useState("medium");
-  const [streak, setStreak] = useState(0);
 
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  // Activar protección offline
+  useEffect(() => {
+    setQuizActive(true);
+    return () => setQuizActive(false);
+  }, []);
 
-  // 🔹 FIX — hacer visible la pantalla
+  // Fade-in al cargar pantalla
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -27,86 +79,151 @@ export default function AdaptivePracticeScreen({ navigation }) {
     }).start();
   }, []);
 
-  // 🔹 PROTECCIÓN — si state está vacío
-  if (!state || !state.quiz || state.quiz.length === 0) {
+  // ==========================================================
+  //  Cargar preguntas iniciales
+  // ==========================================================
+  useEffect(() => {
+    loadNewQuestionBatch("medium");
+  }, []);
+
+  function loadNewQuestionBatch(targetLevel) {
+    const batch = getQuestionsByDifficulty(targetLevel, usedIds);
+
+    if (!batch) {
+      alert("No quedan preguntas disponibles para este nivel.");
+      navigation.goBack();
+      return;
+    }
+
+    // 5 preguntas por lote
+    const slice = batch.slice(0, 5);
+
+    setQuestions(slice);
+    setUsedIds((prev) => [...prev, ...slice.map((q) => q.id)]);
+    setIndex(0);
+  }
+
+  if (!questions.length) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>No se pudieron cargar preguntas.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={{ color: "#6a0dad", marginTop: 10 }}>Volver</Text>
-        </TouchableOpacity>
+        <Text style={styles.error}>No se pudieron cargar preguntas.</Text>
       </View>
     );
   }
 
-  const total = state.quiz.length;
-  const current = state.quiz[index];
+  const current = questions[index];
 
-  // 🔹 BOTÓN SALIR
-  const handleExit = () => {
-    Alert.alert(
-      "Salir del modo adaptativo",
-      "Perderás tu progreso actual. ¿Deseas salir?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Salir", style: "destructive", onPress: () => navigation.navigate("PracticeMenuScreen") }
-      ]
-    );
-  };
-
-  const handleNext = async (wasCorrect, selected, finalScore, isLast) => {
+  // ==========================================================
+  //  Manejo de Respuesta
+  // ==========================================================
+  async function handleAnswer(wasCorrect) {
     if (wasCorrect) {
-      setStreak((s) => s + 1);
-      if (streak + 1 >= 3) setLevel("hard");
+      await XP_Add(XP_PER_CORRECT);
+      setScore((s) => s + 1);
+      setStreakCorrect((s) => s + 1);
+      setStreakWrong(0);
     } else {
-      setStreak(0);
-      if (level === "hard") setLevel("medium");
-      else setLevel("easy");
+      setStreakWrong((s) => s + 1);
+      setStreakCorrect(0);
     }
 
-    if (isLast) {
-      await saveAdaptiveStats(finalScore, total);
+    // ---------------------------------------------
+    // CAMBIO DE DIFICULTAD
+    // ---------------------------------------------
+    if (streakCorrect + 1 >= 2 && wasCorrect) {
+      changeDifficulty(+1);
+    }
 
-      navigation.replace("ResultScreen", {
-        score: finalScore,
-        total,
-        area: "Modo Adaptativo",
-      });
+    if (streakWrong + 1 >= 2 && !wasCorrect) {
+      changeDifficulty(-1);
+    }
+
+    // ---------------------------------------------
+    // SIGUIENTE PREGUNTA
+    // ---------------------------------------------
+    if (index + 1 === questions.length) {
+      loadNewQuestionBatch(level);
     } else {
       setIndex((i) => i + 1);
     }
-  };
+  }
+
+  // ==========================================================
+  //  Cambiar dificultad según +/-1
+  // ==========================================================
+  function changeDifficulty(delta) {
+    const pos = LEVELS.indexOf(level);
+    let newPos = pos + delta;
+
+    if (newPos < 0) newPos = 0;
+    if (newPos > LEVELS.length - 1) newPos = LEVELS.length - 1;
+
+    const newLevel = LEVELS[newPos];
+    setLevel(newLevel);
+  }
+
+  // ==========================================================
+  //  FINALIZAR SESIÓN ADAPTATIVA
+  // ==========================================================
+
+  async function endSession() {
+    await XP_Add(XP_SESSION_BONUS_10);
+
+    navigation.replace("HomeScreen", {
+      score,
+      total: usedIds.length,
+      area: "Modo Adaptativo",
+      mode: "adaptive",
+    });
+  }
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-
-      <TouchableOpacity style={styles.exitBtn} onPress={handleExit}>
+      {/* BOTÓN SALIR */}
+      <TouchableOpacity style={styles.exitBtn} onPress={() => endSession()}>
         <Text style={styles.exitText}>Salir ✖</Text>
       </TouchableOpacity>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* SCROLL + INDICADOR */}
+      <ScrollWrapper style={styles.scrollContent}>
         <Text style={styles.header}>🧠 Modo Adaptativo</Text>
-        <Text style={styles.sub}>
-          Nivel actual: <Text style={{ fontWeight: "bold", color: "#6a0dad" }}>{level.toUpperCase()}</Text>
-        </Text>
-        <Text style={styles.progress}>Pregunta {index + 1} de {total}</Text>
 
+        <Text style={styles.sub}>
+          Nivel actual:{" "}
+          <Text style={{ fontWeight: "bold", color: "#6a0dad" }}>
+            {level.toUpperCase()}
+          </Text>
+        </Text>
+
+        <Text style={styles.progress}>
+          Pregunta {index + 1} de {questions.length}
+        </Text>
+
+        {/* TARJETA */}
         <QuestionCard
           question={current}
-          index={index}
-          total={total}
-          onNext={handleNext}
-          currentScore={score}
+          selected={null}
+          disabled={false}
+          showAnswer={false}
+          onSelect={() => {}}
+          onNext={(wasCorrect) => handleAnswer(wasCorrect)}
         />
-      </ScrollView>
-
+      </ScrollWrapper>
     </Animated.View>
   );
 }
 
+// ==========================================================
+//  ESTILOS
+// ==========================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fafafa" },
-  scrollContent: { padding: 16, paddingBottom: 40, paddingTop: 60, flexGrow: 1 },
+
+  scrollContent: {
+    padding: 16,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
 
   exitBtn: {
     position: "absolute",
@@ -118,7 +235,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,0,0,0.12)",
     borderRadius: 12,
   },
-  exitText: { color: "#d62828", fontWeight: "bold", fontSize: 14 },
+
+  exitText: { color: "#d62828", fontWeight: "bold" },
 
   header: {
     fontSize: 22,
@@ -127,8 +245,28 @@ const styles = StyleSheet.create({
     color: "#6a0dad",
     marginBottom: 8,
   },
-  sub: { textAlign: "center", color: "#555", marginBottom: 6 },
-  progress: { textAlign: "center", color: "#777", marginBottom: 10 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 18, color: "#6a0dad", fontWeight: "bold" },
+
+  sub: {
+    textAlign: "center",
+    color: "#555",
+    marginBottom: 6,
+  },
+
+  progress: {
+    textAlign: "center",
+    color: "#777",
+    marginBottom: 10,
+  },
+
+  error: {
+    color: "#6a0dad",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });

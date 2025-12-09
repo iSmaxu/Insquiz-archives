@@ -1,177 +1,176 @@
 // App/screens/QuizScreen.js
 // ==========================================================
-//  INSQUIZ - QuizScreen (10/50 preguntas / práctica normal)
+// INSQUIZ - QuizScreen con ScrollWrapper optimizado
+// y carga ASÍNCRONA de preguntas + soporte multi-modo
 // ==========================================================
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  Animated,
   TouchableOpacity,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
+
+import ScrollWrapper from "../components/ScrollWrapper";
+import { XP_Add, XP_PER_CORRECT } from "../engines/XP_Engine";
+import { getQuestions, getQuizByMode } from "../services/quizService";
 import QuestionCard from "../components/QuestionCard";
-import { getQuestionsBySubject, getCombinedPool } from "../services/quizService";
-import { saveResultSession } from "../services/resultService";
-import { registerStats } from "../services/statsService";
 
 export default function QuizScreen({ route, navigation }) {
-  const {
-    subject = "all",
-    count = 10,
-    mode = "practice",
-    subjectLabel,
-  } = route.params || {};
+  const { subject, count, subjectLabel, mode } = route.params;
 
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0); // correctas reales
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const headerTitle = subjectLabel || subject.toUpperCase();
-
-  // 🔹 Botón salir
-  const handleExit = () => {
-    Alert.alert(
-      "Salir del Quiz",
-      "¿Deseas salir? Perderás tu progreso.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Salir",
-          style: "destructive",
-          onPress: () => navigation.navigate("PracticeMenuScreen"),
-        },
-      ]
-    );
-  };
+  const [score, setScore] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let pool;
+    let isMounted = true;
 
-    if (subject === "all") {
-      pool = getCombinedPool(Math.ceil(count / 5));
-    } else {
-      pool = getQuestionsBySubject(subject, { limit: count });
+    async function load() {
+      try {
+        // 1️⃣ Si vienen preguntas inyectadas (RealSim, custom, etc.)
+        if (route.params?.questions) {
+          if (isMounted) {
+            setQuestions(route.params.questions);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // 2️⃣ Modos normales usando quizService
+        let qs = [];
+
+        if (mode && mode !== "classic" && mode !== "custom") {
+          qs = await getQuizByMode(mode, subject, count || 10);
+        } else {
+          qs = await getQuestions(subject, count || 10);
+        }
+
+        if (isMounted) {
+          setQuestions(Array.isArray(qs) ? qs : []);
+        }
+      } catch (e) {
+        console.log("❌ Error cargando preguntas en QuizScreen:", e);
+        if (isMounted) {
+          setQuestions([]);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
-    setQuestions(pool);
+    load();
 
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 350,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [route.params, subject, count, mode]);
 
-  const handleNext = (wasCorrect, selected, _ignored, isLast) => {
-    const newScore = wasCorrect ? score + 1 : score;
-    setScore(newScore);
-
-    if (isLast) {
-      finishQuiz(newScore);
-      return;
-    }
-
-    setIndex((i) => i + 1);
-  };
-
-  const finishQuiz = async (correct) => {
-    try {
-      const total = questions.length;
-      const date = new Date().toISOString();
-
-      // 🔹 Guardar en ResultService unificado (/500)
-      await saveResultSession({
-        mode: mode || "practice",
-        subject,
-        area: subjectLabel || subject,
-        correct,
-        total,
-        date,
-      });
-
-      // 🔹 Registrar estadísticas
-      await registerStats("practice", subject, correct, total);
-
-      // 🔹 Navegar a ResultScreen
-      navigation.replace("ResultScreen", {
-        score: correct,
-        total,
-        area: subjectLabel || subject,
-        mode: mode || "practice",
-      });
-    } catch (error) {
-      console.error("Error finishing quiz:", error);
-      navigation.replace("ResultScreen", {
-        score: correct,
-        total: questions.length,
-        area: subjectLabel || subject,
-      });
-    }
-  };
-
-  const current = questions[index];
-
-  if (!current) {
+  if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.loadingText}>Cargando preguntas...</Text>
+        <ActivityIndicator size="large" color="#6a0dad" />
+        <Text style={{ marginTop: 10 }}>Cargando preguntas…</Text>
       </View>
     );
   }
 
-  return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      {/* 🔹 BOTÓN SALIR */}
-      <TouchableOpacity style={styles.exitBtn} onPress={handleExit}>
-        <Text style={styles.exitText}>Salir ✖</Text>
-      </TouchableOpacity>
+  if (!questions || !questions.length) {
+    return (
+      <View style={styles.center}>
+        <Text>No se recibieron preguntas.</Text>
+      </View>
+    );
+  }
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <Text style={styles.header}>Práctica ({headerTitle})</Text>
+  const current = questions[index];
+
+  // ============================================
+  //  MANEJO DE SIGUIENTE PREGUNTA
+  // ============================================
+  async function handleNext({ wasCorrect }) {
+    let nextScore = score;
+
+    if (wasCorrect) {
+      nextScore = score + 1;
+      setScore(nextScore);
+      await XP_Add(XP_PER_CORRECT);
+    }
+
+    const lastIndex = questions.length - 1;
+
+    if (index === lastIndex) {
+      navigation.replace("ResultScreen", {
+        score: nextScore,
+        total: questions.length,
+        area: subjectLabel,
+        mode,
+      });
+    } else {
+      setIndex((i) => i + 1);
+    }
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
+      <ScrollWrapper style={{ paddingHorizontal: 18, paddingTop: 50 }}>
+        <Text style={styles.header}>{subjectLabel}</Text>
+        <Text style={styles.progress}>
+          Pregunta {index + 1} de {questions.length}
+        </Text>
 
         <QuestionCard
           question={current}
           index={index}
           total={questions.length}
           onNext={handleNext}
-          currentScore={score}
         />
-      </ScrollView>
-    </Animated.View>
+      </ScrollWrapper>
+
+      <TouchableOpacity
+        style={styles.exitBtn}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.exitText}>Salir ✖</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
+// ==========================================================
+//  ESTILOS
+// ==========================================================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fafafa" },
-
-  exitBtn: {
-    position: "absolute",
-    top: 45,
-    right: 14,
-    zIndex: 50,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(255,0,0,0.12)",
-    borderRadius: 12,
-  },
-  exitText: {
-    color: "#d62828",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-
   header: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#6a0dad",
-    marginBottom: 10,
     textAlign: "center",
   },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { color: "#6a0dad", fontSize: 16 },
+  progress: {
+    textAlign: "center",
+    marginBottom: 10,
+    color: "#555",
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exitBtn: {
+    position: "absolute",
+    top: 35,
+    right: 12,
+    backgroundColor: "rgba(255,0,0,0.12)",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  exitText: {
+    color: "#c62828",
+    fontWeight: "bold",
+  },
 });

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "daily_chest",
+    "name": "Cofre diario",
+    "description": "Recompensa por estudiar al menos una vez en el día.",
+    "icon": "treasure-chest",
+    "trigger": {
+      "event": "daily_activity",
+      "minStreak": 0
+    },
+    "rules": {
+      "oncePerDay": true
+    },
+    "rewards": {
+      "xp": 20,
+      "coins": 50
+    },
+    "category": "diario"
+  },
+  {
+    "id": "streak3_chest",
+    "name": "Cofre de racha x3",
+    "description": "Por mantener una racha de 3 días seguidos.",
+    "icon": "fire",
+    "trigger": {
+      "event": "daily_activity",
+      "minStreak": 3
+    },
+    "rules": {
+      "once": true
+    },
+    "rewards": {
+      "xp": 50,
+      "coins": 100
+    },
+    "category": "racha"
+  },
+  {
+    "id": "streak7_chest",
+    "name": "Cofre de racha x7",
+    "description": "Por mantener una racha de 7 días seguidos.",
+    "icon": "fire-circle",
+    "trigger": {
+      "event": "daily_activity",
+      "minStreak": 7
+    },
+    "rules": {
+      "once": true
+    },
+    "rewards": {
+      "xp": 100,
+      "coins": 200
+    },
+    "category": "racha"
+  },
+  {
+    "id": "level5_chest",
+    "name": "Cofre de nivel 5",
+    "description": "Por alcanzar nivel 5.",
+    "icon": "star-circle",
+    "trigger": {
+      "event": "daily_activity",
+      "minLevel": 5
+    },
+    "rules": {
+      "once": true
+    },
+    "rewards": {
+      "xp": 150,
+      "coins": 300
+    },
+    "category": "nivel"
+  }
+]

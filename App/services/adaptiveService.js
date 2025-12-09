@@ -4,13 +4,20 @@
 // ==========================================================
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { InsquizMaster } from "./quizService";
+import masterQuestions from "../data/converted_questions/insquiz_master.js";
 
 // Clasificar por dificultad real
-const EASY = InsquizMaster.filter((q) => q.difficulty === "easy");
-const MEDIUM = InsquizMaster.filter((q) => q.difficulty === "medium");
-const HARD = InsquizMaster.filter((q) => q.difficulty === "hard");
+export const EASY = masterQuestions.filter(
+  (q) => q.difficulty?.toLowerCase() === "easy"
+);
 
+export const MEDIUM = masterQuestions.filter(
+  (q) => q.difficulty?.toLowerCase() === "medium"
+);
+
+export const HARD = masterQuestions.filter(
+  (q) => q.difficulty?.toLowerCase() === "hard"
+);
 const FALLBACK = MEDIUM.length ? MEDIUM : InsquizMaster;
 
 // Elegir aleatorio

@@ -1,4 +1,12 @@
-import React from "react";
+// App/screens/HomeScreen.js
+// =====================================================
+//   INSQUIZ — HomeScreen COMPLETA con:
+//   ✨ Detección OTA por commit
+//   ✨ Registro de ExpoPushToken en Firebase
+//   ✨ Logs detallados de depuración
+// =====================================================
+
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,66 +16,138 @@ import {
   Image,
   Alert,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";           // ✨ OTA COMMIT
 import * as Updates from "expo-updates";
+import * as Notifications from "expo-notifications";
 
-
-
-
+import { XP_GetProfile } from "../engines/XP_Engine";
+import masterQuestions from "../data/insquiz_master";
+import { registerPushTokenInDB } from "../services/pushService";   // ✨ PUSH SYSTEM
+import BuildInfo from "../components/BuildInfo"; // (opcional)
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const [profile, setProfile] = useState(null);
 
-  // 🔥 ALERTA ANTES DEL SIMULACRO REAL
+  // ======================================================
+  // 🎯 MAIN EFFECT — Cada vez que entras a HomeScreen
+  // ======================================================
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function runChecks() {
+        console.log("========================================");
+        console.log("🏁 HomeScreen → runChecks() INICIADO");
+        console.log("========================================");
+
+        // 1️⃣ Obtener perfil XP
+        try {
+          console.log("📘 Cargando perfil XP...");
+          const p = await XP_GetProfile();
+          if (isActive) setProfile(p);
+          console.log("✔ Perfil XP cargado:", p);
+        } catch (e) {
+          console.log("❌ Error cargando XP_GetProfile:", e);
+        }
+
+        // 2️⃣ Detectar si hubo OTA update usando commit
+        try {
+          const currentCommit = Constants.expoConfig?.extra?.commit ?? null;
+          console.log("🔍 Commit actual:", currentCommit);
+
+          if (!currentCommit) {
+            console.log("⚠️ NO SE ENCONTRÓ commit. Revisa app.config.js");
+          } else {
+            const lastCommit = await AsyncStorage.getItem("lastCommit");
+            console.log("📦 lastCommit guardado:", lastCommit);
+
+            if (!lastCommit) {
+              console.log("🟣 Guardando commit inicial...");
+              await AsyncStorage.setItem("lastCommit", currentCommit);
+            } else if (lastCommit !== currentCommit) {
+              console.log("🎉 OTA DETECTADA → commit cambió.");
+              await AsyncStorage.setItem("lastCommit", currentCommit);
+
+              Alert.alert(
+                "InsQUIZ actualizado ✨",
+                `Se ha aplicado una nueva actualización.\n\nCommit: ${currentCommit}`,
+                [{ text: "Entendido" }]
+              );
+            }
+          }
+        } catch (e) {
+          console.log("❌ Error verificando OTA:", e);
+        }
+
+        // 3️⃣ Registrar token push en Firebase
+        try {
+          console.log("📣 Registrando ExpoPushToken...");
+          const token = await registerPushTokenInDB();
+          console.log("📣 Resultado registerPushTokenInDB:", token);
+        } catch (e) {
+          console.log("❌ Error registrando push token:", e);
+        }
+
+        console.log("========================================");
+        console.log("🏁 HomeScreen → runChecks() FINALIZADO");
+        console.log("========================================");
+      }
+
+      runChecks();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
+
+  // ======================================================
+  // 🎯 ALERTA ANTES DEL SIMULACRO REAL
+  // ======================================================
   const handleRealSimAlert = () => {
     Alert.alert(
-      "Simulacro Real (390 preguntas)",
+      "Simulacro Real (240 preguntas)",
       "Estás a punto de iniciar un simulacro idéntico al examen oficial.\n\n" +
-        "• Contiene 390 preguntas consecutivas.\n" +
+        "• Contiene 240 preguntas consecutivas.\n" +
         "• Si sales, perderás el progreso.\n" +
-        "• Asegúrate de tener tiempo y un ambiente tranquilo.\n\n" +
+        "• Asegúrate de tener tiempo y concentración.\n\n" +
         "¿Deseas comenzar?",
       [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Iniciar",
           style: "default",
-          onPress: () => navigation.navigate("RealSimScreen"),
+          onPress: () => {
+            const qs = masterQuestions
+              .sort(() => Math.random() - 0.5)
+              .slice(0, 390);
+
+            navigation.navigate("RealSimScreen", {
+              questions: qs,
+              mode: "realsim",
+            });
+          },
         },
       ]
     );
   };
 
-  // 🔄 BOTÓN PARA BUSCAR ACTUALIZACIONES OTA
-  const handleOTAUpdate = async () => {
-    try {
-      alert("Buscando actualizaciones…");
-
-      const update = await Updates.checkForUpdateAsync();
-      if (update.isAvailable) {
-        alert("Actualización disponible. Descargando…");
-        await Updates.fetchUpdateAsync();
-        alert("Actualización lista. Reiniciando la app…");
-        await Updates.reloadAsync();
-      } else {
-        alert("No hay actualizaciones disponibles.");
-      }
-    } catch (e) {
-      console.log("OTA Error >>", e);
-      alert("No se pudo buscar actualizaciones.");
-    }
-  };
-
+  // ======================================================
+  // 🎯 UI GENERAL
+  // ======================================================
   return (
     <ScrollView style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.appTitle}>InsQUIZ</Text>
         <Text style={styles.subtitle}>Entrena. Mejora. Domina el examen.</Text>
       </View>
 
-      {/* MODO PRÁCTICA */}
       <TouchableOpacity
         style={styles.mainButton}
         onPress={() => navigation.navigate("PracticeMenuScreen")}
@@ -81,16 +161,16 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* SIMULACRO REAL */}
+      {/* Simulacro Real */}
       <TouchableOpacity style={styles.mainButton} onPress={handleRealSimAlert}>
         <Ionicons name="timer-outline" size={30} color="#fff" />
         <View style={styles.textContainer}>
           <Text style={styles.buttonTitle}>Simulacro real</Text>
-          <Text style={styles.buttonDesc}>390 preguntas tipo examen</Text>
+          <Text style={styles.buttonDesc}>240 preguntas tipo examen</Text>
         </View>
       </TouchableOpacity>
 
-      {/* LOGROS */}
+      {/* Logros */}
       <TouchableOpacity
         style={styles.secondaryButton}
         onPress={() => navigation.navigate("Achievements")}
@@ -99,27 +179,23 @@ export default function HomeScreen() {
         <Text style={styles.secondaryText}>Ver mis logros</Text>
       </TouchableOpacity>
 
-      {/* 🔄 ACTUALIZAR APP */}
-      <TouchableOpacity
-        style={[styles.secondaryButton, { marginTop: 15 }]}
-        onPress={handleOTAUpdate}
-      >
-        <Ionicons name="cloud-download-outline" size={26} color="#6a0dad" />
-        <Text style={styles.secondaryText}>Buscar actualizaciones</Text>
-      </TouchableOpacity>
-
-      {/* FOOTER IMAGE */}
-      <View style={styles.imageContainer}>
+      {/* Logo */}
+      <View style={styles.logoContainer}>
         <Image
           source={require("../../assets/icon.png")}
           style={styles.image}
           resizeMode="contain"
         />
       </View>
+
+      <BuildInfo />
     </ScrollView>
   );
 }
 
+// ======================================================
+// 🎨 ESTILOS
+// ======================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },
 
@@ -131,6 +207,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
   },
+
   appTitle: {
     fontSize: 36,
     fontWeight: "900",
@@ -149,11 +226,8 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 16,
     elevation: 3,
-    shadowColor: "#6a0dad",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
   },
+
   textContainer: { marginLeft: 14 },
   buttonTitle: { fontSize: 19, fontWeight: "800", color: "#fff" },
   buttonDesc: { fontSize: 13, color: "#ececec", marginTop: 2 },
@@ -167,6 +241,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 2,
     borderColor: "#6a0dad",
+    marginTop: 10,
   },
   secondaryText: {
     color: "#6a0dad",
@@ -175,6 +250,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  imageContainer: { alignItems: "center", marginTop: 45, marginBottom: 60 },
-  image: { width: 260, height: 220 },
+  logoContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 45,
+    marginBottom: 60,
+  },
+
+  image: { width: 270, height: 230 },
 });

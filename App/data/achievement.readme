@@ -1,0 +1,62 @@
+🟣 4) Cómo añadir nuevos logros en JSON (SÚPER FÁCIL)
+1) Logro por preguntas respondidas:
+{
+  "id": "p200",
+  "title": "Duro de práctica",
+  "description": "Responde 200 preguntas.",
+  "requirement": {
+    "type": "total_answered",
+    "value": 200
+  }
+}
+
+2) Logro por precisión en ingles:
+{
+  "id": "english75",
+  "title": "Inglés Avanzado",
+  "description": "Alcanza 75% en Inglés",
+  "requirement": {
+    "type": "subject_accuracy",
+    "subject": "ingles",
+    "value": 75
+  }
+}
+
+3) Logro por modo:
+{
+  "id": "adaptive10",
+  "title": "Control total",
+  "description": "Juega 10 sesiones adaptativas.",
+  "requirement": {
+    "type": "mode_played",
+    "mode": "adaptive",
+    "value": 10
+  }
+}
+
+4) Logro por nivel:
+{
+  "id": "lvl10",
+  "title": "Nivel 10",
+  "description": "Llega al nivel 10.",
+  "requirement": {
+    "type": "level_reached",
+    "value": 10
+  }
+}
+
+🟣 5) ¿Qué significan los tipos de requerimientos?
+
+Aquí te dejo la tabla oficial para que inventes todos los que quieras:
+
+Tipo	Significado
+"total_answered"	Total de preguntas que el usuario ha respondido
+"total_correct"	Total de preguntas correctas
+"global_accuracy"	Porcentaje global de precisión
+"level_reached"	Nivel mínimo del XP Engine
+"mode_played"	Número de sesiones jugadas de ese modo (practice, adaptive, realsim)
+"subject_accuracy"	Porcentaje mínimo en una materia específica
+🟣 6) ¿Quieres logros más avanzados? (opcional)
+
+También puedo añadir:
+

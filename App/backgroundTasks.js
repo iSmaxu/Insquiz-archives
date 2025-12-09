@@ -5,7 +5,7 @@
 import * as TaskManager from "expo-task-manager";
 import * as BackgroundFetch from "expo-background-fetch";
 import * as Notifications from "expo-notifications";
-import { validateLicenseOnlineDetailed, clearLicense } from "./services/licenseService";
+
 
 const TASK_NAME = "LICENSE_VALIDATION_TASK_PRO";
 

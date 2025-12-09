@@ -1,6 +1,6 @@
 // App/screens/AchievementsScreen.js
 // ==========================================================
-//  INSQUIZ - AchievementsScreen PRO (Stats v4 + Skills)
+// INSQUIZ - AchievementsScreen Moderno (XP + Logros + Scroll PRO)
 // ==========================================================
 
 import React, { useEffect, useState } from "react";
@@ -8,377 +8,300 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  TouchableOpacity,
 } from "react-native";
-import { ProgressBar } from "react-native-paper";
-import { getStats, resetStats } from "../services/statsService";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
-export default function AchievementsScreen() {
+import { XP_GetProfile } from "../engines/XP_Engine";
+import { getStats } from "../services/statsService";
+import { evaluateAchievements } from "../engines/Achievement_Engine";
+import ScrollWrapper from "../components/ScrollWrapper"; // ← barrita sutil
+
+export default function AchievementsScreen({ navigation }) {
+  const [xp, setXp] = useState(null);
   const [stats, setStats] = useState(null);
+  const [unlocked, setUnlocked] = useState([]);
+  const [locked, setLocked] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadStats = async () => {
-    setLoading(true);
-    const data = await getStats();
-    setStats(data);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    loadStats();
+    load();
   }, []);
 
-  const handleReset = () => {
-    Alert.alert(
-      "Reiniciar estadísticas",
-      "¿Seguro que quieres borrar todas tus estadísticas y logros locales?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Reiniciar",
-          style: "destructive",
-          onPress: async () => {
-            await resetStats();
-            await loadStats();
-          },
-        },
-      ]
-    );
-  };
+  async function load() {
+    try {
+      const xpData = await XP_GetProfile();
+      const statsData = await getStats();
+      const ach = await evaluateAchievements();
+
+      // estructuras seguras
+      const safeXP = {
+        level: xpData?.level || 1,
+        xp: xpData?.xp || 0,
+        xpToNext: xpData?.xpToNext || 50,
+        totalXp: xpData?.totalXp || 0,
+      };
+
+      const safeStats = {
+        totalAnswered: statsData?.totalAnswered || 0,
+        totalCorrect: statsData?.totalCorrect || 0,
+        subjects: statsData?.subjects || {},
+        modes: statsData?.modes || {},
+        skills: statsData?.skills || {},
+        bestPerfect: statsData?.bestPerfect || 0,
+      };
+
+      setXp(safeXP);
+      setStats(safeStats);
+      setUnlocked(ach.unlocked);
+      setLocked(ach.locked);
+    } catch (e) {
+      console.log("❌ ERROR cargando logros:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#6a0dad" />
-        <Text style={{ color: "#6a0dad", marginTop: 8 }}>
-          Cargando estadísticas...
-        </Text>
+        <Text style={{ color: "#6a0dad", marginTop: 8 }}>Cargando logros…</Text>
       </View>
     );
   }
-
-  if (!stats) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Sin datos aún</Text>
-        <Text style={styles.subtitle}>
-          Resuelve algunos quizzes para ver tus logros.
-        </Text>
-      </View>
-    );
-  }
-
-  const totalAns = stats.totalAnswered || 0;
-  const totalCorrect = stats.totalCorrect || 0;
-  const globalPct =
-    totalAns > 0 ? ((totalCorrect / totalAns) * 100).toFixed(1) : "0.0";
-
-  const modes = stats.modes || {};
-  const subjects = stats.subjects || {};
-  const skills = stats.skills || {};
-  const bestSkill = stats.bestSkill || null;
-  const worstSkill = stats.worstSkill || null;
-
-  // Ordenar skills por porcentaje
-  const orderedSkills = Object.entries(skills)
-    .map(([sk, val]) => {
-      const pct = val.total > 0 ? (val.correct / val.total) * 100 : 0;
-      return { name: sk, ...val, pct };
-    })
-    .sort((a, b) => b.pct - a.pct);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Header */}
-      <View style={styles.headerBox}>
-        <Text style={styles.title}>Mis logros</Text>
-        <Text style={styles.subtitle}>Resumen de tu rendimiento en InsQUIZ</Text>
-      </View>
+    <View style={styles.wrapper}>
+      <ScrollWrapper style={{ flex: 1 }}>
+        <View style={{ paddingBottom: 70 }}>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Logros</Text>
 
-      {/* RESUMEN GENERAL */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="stats-chart" size={22} color="#6a0dad" />
-          <Text style={styles.cardTitle}>Resumen general</Text>
-        </View>
+            <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+              <Ionicons name="stats-chart-outline" size={26} color="#6a0dad" />
+            </TouchableOpacity>
+          </View>
 
-        <Text style={styles.statLine}>
-          Preguntas respondidas:{" "}
-          <Text style={styles.bold}>{totalAns}</Text>
-        </Text>
-        <Text style={styles.statLine}>
-          Respuestas correctas:{" "}
-          <Text style={styles.bold}>{totalCorrect}</Text>
-        </Text>
-        <Text style={styles.statLine}>
-          Precisión global:{" "}
-          <Text style={styles.bold}>{globalPct}%</Text>
-        </Text>
+          {/* XP CARD */}
+          <View style={styles.xpCard}>
+            <Text style={styles.level}>Nivel {xp.level}</Text>
 
-        <ProgressBar
-          progress={totalAns > 0 ? totalCorrect / totalAns : 0}
-          style={styles.progress}
-        />
-      </View>
-
-      {/* POR MODO */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="layers-outline" size={22} color="#6a0dad" />
-          <Text style={styles.cardTitle}>Por modo</Text>
-        </View>
-
-        {["practice", "adaptive", "realsim"].map((m) => {
-          const entry = modes[m] || { correct: 0, total: 0 };
-          const pct =
-            entry.total > 0 ? ((entry.correct / entry.total) * 100).toFixed(1) : "0.0";
-
-          const label =
-            m === "practice"
-              ? "Modo práctica"
-              : m === "adaptive"
-              ? "Modo adaptativo"
-              : "Simulacro Real";
-
-          return (
-            <View key={m} style={styles.modeRow}>
-              <Text style={styles.modeName}>{label}</Text>
-              <Text style={styles.modePct}>{pct}%</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* POR MATERIA */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <MaterialCommunityIcons name="book-education" size={22} color="#6a0dad" />
-          <Text style={styles.cardTitle}>Por materia</Text>
-        </View>
-
-        {Object.keys(subjects).length === 0 ? (
-          <Text style={styles.noData}>
-            Todavía no hay suficiente información por materia.
-          </Text>
-        ) : (
-          Object.entries(subjects).map(([sub, val]) => {
-            const pct =
-              val.total > 0 ? ((val.correct / val.total) * 100).toFixed(1) : "0.0";
-
-            return (
-              <View key={sub} style={styles.subjectRow}>
-                <Text style={styles.subjectName}>{sub}</Text>
-                <Text style={styles.subjectPct}>{pct}%</Text>
-              </View>
-            );
-          })
-        )}
-      </View>
-
-      {/* SKILLS */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <MaterialCommunityIcons name="brain" size={22} color="#6a0dad" />
-          <Text style={styles.cardTitle}>Habilidades (skills)</Text>
-        </View>
-
-        {orderedSkills.length === 0 ? (
-          <Text style={styles.noData}>
-            Todavía no hay datos de habilidades. Practica más para ver tu perfil.
-          </Text>
-        ) : (
-          <>
-            {/* Mejor / peor skill */}
-            <View style={styles.skillSummary}>
-              <Text style={styles.skillSummaryText}>
-                🏆 Mejor skill:{" "}
-                <Text style={styles.bold}>
-                  {bestSkill || orderedSkills[0]?.name}
-                </Text>
-              </Text>
-              <Text style={styles.skillSummaryText}>
-                ⚠️ Skill a mejorar:{" "}
-                <Text style={styles.bold}>
-                  {worstSkill || orderedSkills[orderedSkills.length - 1]?.name}
-                </Text>
-              </Text>
+            <View style={styles.xpBarBack}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  { width: `${(xp.xp / xp.xpToNext) * 100}%` },
+                ]}
+              />
             </View>
 
-            {/* Lista de skills */}
-            {orderedSkills.map((s, idx) => (
-              <View key={idx} style={styles.skillRow}>
-                <Text style={styles.skillName}>{s.name}</Text>
-                <Text style={styles.skillPct}>{s.pct.toFixed(1)}%</Text>
-              </View>
-            ))}
-          </>
-        )}
-      </View>
+            <Text style={styles.xpText}>
+              {xp.xp} / {xp.xpToNext} XP
+            </Text>
+          </View>
 
-      {/* BOTÓN RESETEAR */}
-      <View style={{ alignItems: "center", marginTop: 10 }}>
-        <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-          <MaterialCommunityIcons
-            name="backup-restore"
-            size={20}
-            color="#d62828"
-          />
-          <Text style={styles.resetText}>Reiniciar estadísticas</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {/* SECCIÓN DE DESBLOQUEADOS */}
+          <Text style={styles.sectionTitle}>Desbloqueados</Text>
+
+          {unlocked.length === 0 && (
+            <Text style={styles.emptyText}>
+              Aún no tienes logros desbloqueados…
+            </Text>
+          )}
+
+          {unlocked.map((ach, idx) => (
+            <View key={idx} style={styles.achievementCardUnlocked}>
+              <Ionicons name="trophy" size={30} color="#fff" />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.achTitleUnlocked}>{ach.name}</Text>
+                <Text style={styles.achDescUnlocked}>{ach.description}</Text>
+              </View>
+            </View>
+          ))}
+
+          {/* SECCIÓN BLOQUEADOS */}
+          <Text style={styles.sectionTitle}>Bloqueados</Text>
+
+          {locked.length === 0 && (
+            <Text style={styles.emptyText}>No quedan logros bloqueados.</Text>
+          )}
+
+          {locked.map((ach, idx) => (
+            <View key={idx} style={styles.achievementCardLocked}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={28}
+                color="#6a0dad"
+              />
+
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.achTitleLocked}>{ach.name}</Text>
+                <Text style={styles.achDescLocked}>{ach.description}</Text>
+
+                {/* PROGRESO */}
+                {ach.progress !== undefined && (
+                  <>
+                    <View style={styles.progressBarBack}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          { width: `${ach.progress * 100}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.progressLabel}>
+                      {Math.round(ach.progress * 100)}%
+                    </Text>
+                  </>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollWrapper>
+    </View>
   );
 }
 
 // ==========================================================
-// 🎨 Estilos
+// ESTILOS MODERNOS
 // ==========================================================
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    backgroundColor: "#fafafa",
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    backgroundColor: "#fff",
   },
 
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#fff",
   },
 
-  title: {
-    fontSize: 24,
-    fontWeight: "900",
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 22,
+    paddingTop: 34,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "800",
     color: "#6a0dad",
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
+
+  xpCard: {
+    backgroundColor: "#f6f0ff",
+    padding: 18,
+    width: "88%",
+    alignSelf: "center",
+    borderRadius: 18,
     marginTop: 4,
-    textAlign: "center",
-  },
-
-  headerBox: {
-    alignItems: "center",
-    marginBottom: 18,
-    marginTop: 10,
-  },
-
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 14,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
-  cardHeader: {
+  level: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#6a0dad",
+    marginBottom: 6,
+  },
+  xpBarBack: {
+    width: "100%",
+    height: 12,
+    backgroundColor: "#e3d4ff",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  xpBarFill: {
+    height: "100%",
+    backgroundColor: "#6a0dad",
+  },
+  xpText: {
+    textAlign: "right",
+    fontWeight: "600",
+    color: "#6a0dad",
+    fontSize: 13,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#333",
+    marginLeft: 22,
+    marginTop: 20,
+    marginBottom: 6,
+  },
+
+  emptyText: {
+    textAlign: "center",
+    marginVertical: 12,
+    color: "#777",
+  },
+
+  // UNLOCKED ACHIEVEMENTS
+  achievementCardUnlocked: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    backgroundColor: "#6a0dad",
+    padding: 14,
+    width: "87%",
+    alignSelf: "center",
+    borderRadius: 16,
+    marginTop: 12,
   },
-  cardTitle: {
+  achTitleUnlocked: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  achDescUnlocked: {
+    fontSize: 13,
+    color: "#e8d7ff",
+  },
+
+  // LOCKED ACHIEVEMENTS
+  achievementCardLocked: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f6f0ff",
+    padding: 14,
+    width: "87%",
+    alignSelf: "center",
+    borderRadius: 16,
+    marginTop: 14,
+  },
+  achTitleLocked: {
     fontSize: 16,
     fontWeight: "700",
     color: "#333",
-    marginLeft: 6,
   },
-
-  statLine: {
-    fontSize: 14,
-    color: "#444",
-    marginTop: 4,
-  },
-  bold: {
-    fontWeight: "700",
-    color: "#6a0dad",
-  },
-  progress: {
-    marginTop: 10,
-    height: 8,
-    borderRadius: 10,
-  },
-
-  modeRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 4,
-  },
-  modeName: {
-    fontSize: 14,
-    color: "#444",
-  },
-  modePct: {
-    fontSize: 14,
-    color: "#6a0dad",
-    fontWeight: "700",
-  },
-
-  subjectRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 4,
-  },
-  subjectName: {
-    fontSize: 14,
-    color: "#444",
-  },
-  subjectPct: {
-    fontSize: 14,
-    color: "#6a0dad",
-    fontWeight: "700",
-  },
-
-  noData: {
+  achDescLocked: {
     fontSize: 13,
-    color: "#777",
-    marginTop: 4,
+    color: "#666",
   },
 
-  skillSummary: {
-    marginTop: 4,
-    marginBottom: 10,
+  progressBarBack: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "#e0d0ff",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginTop: 6,
   },
-  skillSummaryText: {
-    fontSize: 14,
-    color: "#444",
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#6a0dad",
   },
-
-  skillRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 4,
-  },
-  skillName: {
-    fontSize: 14,
-    color: "#333",
-  },
-  skillPct: {
-    fontSize: 14,
+  progressLabel: {
     color: "#6a0dad",
-    fontWeight: "700",
-  },
-
-  resetBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderColor: "#d62828",
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  resetText: {
-    color: "#d62828",
-    fontWeight: "700",
-    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
   },
 });

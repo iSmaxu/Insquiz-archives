@@ -1,0 +1,124 @@
+[
+  {
+    "id": "p10",
+    "title": "Primeros pasos",
+    "description": "Responde 10 preguntas.",
+    "icon": "walk",
+    "requirement": { "type": "total_answered", "value": 10 },
+    "category": "progreso"
+  },
+  {
+    "id": "p100",
+    "title": "Dedicación",
+    "description": "Responde 100 preguntas.",
+    "icon": "run",
+    "requirement": { "type": "total_answered", "value": 100 },
+    "category": "progreso"
+  },
+  {
+    "id": "p500",
+    "title": "Maratonista",
+    "description": "Responde 500 preguntas.",
+    "icon": "rocket-launch",
+    "requirement": { "type": "total_answered", "value": 500 },
+    "category": "progreso"
+  },
+
+  {
+    "id": "acc_70",
+    "title": "Buen desempeño",
+    "description": "Alcanza 70% de precisión general.",
+    "icon": "chart-line",
+    "requirement": { "type": "global_accuracy", "value": 70 },
+    "category": "precisión"
+  },
+  {
+    "id": "acc_85",
+    "title": "Excelente precisión",
+    "description": "Alcanza 85% de precisión general.",
+    "icon": "chart-bell-curve",
+    "requirement": { "type": "global_accuracy", "value": 85 },
+    "category": "precisión"
+  },
+
+  {
+    "id": "lvl3",
+    "title": "Nivel 3",
+    "description": "Alcanza el nivel 3.",
+    "icon": "star",
+    "requirement": { "type": "level_reached", "value": 3 },
+    "category": "nivel"
+  },
+  {
+    "id": "lvl5",
+    "title": "Nivel 5",
+    "description": "Alcanza el nivel 5.",
+    "icon": "trophy",
+    "requirement": { "type": "level_reached", "value": 5 },
+    "category": "nivel"
+  },
+
+  {
+    "id": "streak3",
+    "title": "Racha de 3 días",
+    "description": "Estudia 3 días seguidos.",
+    "icon": "fire",
+    "requirement": { "type": "daily_streak", "value": 3 },
+    "category": "racha"
+  },
+  {
+    "id": "streak7",
+    "title": "Racha de una semana",
+    "description": "Mantén una racha de 7 días.",
+    "icon": "fire-circle",
+    "requirement": { "type": "daily_streak", "value": 7 },
+    "category": "racha"
+  },
+
+  {
+    "id": "skill_master",
+    "title": "Maestro de habilidades",
+    "description": "Obtén 80% o más en tu mejor habilidad.",
+    "icon": "head-lightbulb",
+    "requirement": {
+      "type": "best_skill_over",
+      "value": 80
+    },
+    "category": "habilidad"
+  },
+
+  {
+    "id": "secret_1",
+    "title": "??",
+    "description": "Logro secreto.",
+    "icon": "alien-outline",
+    "requirement": {
+      "type": "perfect_quiz",
+      "value": 10
+    },
+    "category": "secreto",
+    "secret": true
+  },
+
+  {
+    "id": "math_gold",
+    "title": "Oro en matemáticas",
+    "description": "Obtén 75% en matemáticas.",
+    "icon": "calculator-variant",
+    "requirement": {
+      "type": "subject_accuracy",
+      "subject": "matematicas",
+      "value": 75
+    },
+    "category": "materias"
+  },
+
+  {
+    "id": "realsim_finish",
+    "title": "Simulacro completo",
+    "description": "Finaliza un simulacro real completo.",
+    "icon": "school",
+    "requirement": { "type": "mode_played", "mode": "realsim", "value": 1 },
+    "category": "simulacro"
+  }
+]

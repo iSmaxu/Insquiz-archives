@@ -1,222 +1,83 @@
 // App/services/quizService.js
 // ==========================================================
-//  INSQUIZ - QuizService (versión estable con mezcla y
-//  justificaciones sin letras A/B/C/D)
+// INSQUIZ - QUIZ ENGINE v5
+// ahora con prevención de repetición (últimas 600)
+// y fragmentación por materia en modos específicos
 // ==========================================================
 
-import raw from "../data/InsQUIZ_master.json";
+import { getHistory } from "../engines/HistoryEngine";
 
-// ----------------------------------------------------------
-// Mapeo área → código
-// ----------------------------------------------------------
-const AREA_TO_CODE = {
-  lectura: "LQ",
-  matematicas: "MT",
-  ciencias_naturales: "CN",
-  ciencias_sociales: "CS",
-  ingles: "EN",
+// Bancos fragmentados (ya vienen en formato master-like)
+import CN from "../data/converted_questions/cn";
+import CS from "../data/converted_questions/cs";
+import EN from "../data/converted_questions/en";
+import LQ from "../data/converted_questions/lq";
+import MT from "../data/converted_questions/mt";
+
+// ==========================================================
+//  Mapa de bancos por materia
+// ==========================================================
+const BANKS = {
+  lectura_critica: LQ,
+  matematicas: MT,
+  ciencias_naturales: CN,
+  ciencias_sociales: CS,
+  ingles: EN,
 };
 
-// Alias para llamadas externas
-const SUBJECT_ALIAS = {
-  lectura: "lectura",
-  lq: "lectura",
-  lc: "lectura",
+// ==========================================================
+//  Normalización de subject súper robusta
+// ==========================================================
+function normSubject(s) {
+  if (!s) return "";
 
-  matematicas: "matematicas",
-  mt: "matematicas",
+  s = s.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  s = s.toLowerCase().trim();
 
-  ciencias_naturales: "ciencias_naturales",
-  cn: "ciencias_naturales",
+  if (s === "all" || s === "todos" || s === "mixto") return "all";
 
-  ciencias_sociales: "ciencias_sociales",
-  cs: "ciencias_sociales",
+  const map = {
+    // Lectura
+    lq: "lectura_critica",
+    lectura: "lectura_critica",
+    "lectura critica": "lectura_critica",
+    lectura_critica: "lectura_critica",
 
-  ingles: "ingles",
-  en: "ingles",
-};
+    // Matemáticas
+    mt: "matematicas",
+    mate: "matematicas",
+    matematicas: "matematicas",
 
-// ----------------------------------------------------------
-// Utilidades de opciones
-// ----------------------------------------------------------
-function extractLetter(opt) {
-  if (!opt) return "";
-  const m = opt.match(/^[A-D]\)/i);
-  return m ? m[0].replace(")", "").trim().toUpperCase() : "";
-}
+    // Ciencias Naturales
+    cn: "ciencias_naturales",
+    naturales: "ciencias_naturales",
+    "ciencias naturales": "ciencias_naturales",
+    ciencias_naturales: "ciencias_naturales",
 
-function cleanOptionText(opt) {
-  if (!opt) return "";
-  return opt.replace(/^[A-D]\)\s*/i, "").trim();
-}
+    // Ciencias Sociales
+    cs: "ciencias_sociales",
+    sociales: "ciencias_sociales",
+    "ciencias sociales": "ciencias_sociales",
+    ciencias_sociales: "ciencias_sociales",
 
-// Limpia referencias a A/B/C/D en la justificación
-function sanitizeJustification(just) {
-  if (!just) return "";
-
-  let txt = just;
-
-  // "la opción A)" -> "la opción correcta"
-  txt = txt.replace(/la opción [A-D]\)/gi, "la opción correcta");
-  txt = txt.replace(/la opción\s+[A-D]\b/gi, "la opción correcta");
-
-  // "La A)" / "la B)" -> "esa opción"
-  txt = txt.replace(/la [A-D]\)/gi, "esa opción");
-  txt = txt.replace(/la\s+[A-D]\b/gi, "esa opción");
-
-  return txt;
-}
-
-// Mezcla opciones y devuelve textos limpios + respuesta correcta
-function processOptions(options, correctLetter, justification) {
-  let list = (options || []).map((opt) => ({
-    original: opt,
-    letter: extractLetter(opt),
-    clean: cleanOptionText(opt),
-  }));
-
-  // Mezclar orden de las opciones
-  list = shuffleArray(list);
-
-  // Encontrar la opción correcta por la letra original
-  const correctObj = list.find((o) => o.letter === correctLetter);
-
-  return {
-    newOptions: list.map((o) => o.clean),
-    correctText: correctObj ? correctObj.clean : "",
-    newJustification: sanitizeJustification(justification),
+    // Inglés
+    en: "ingles",
+    ing: "ingles",
+    "ingles": "ingles",
   };
+
+  if (map[s]) return map[s];
+
+  // fallback: por si acaso ya viene bien
+  if (BANKS[s]) return s;
+
+  return s;
 }
 
-// ----------------------------------------------------------
-// Normalizar dificultad
-// ----------------------------------------------------------
-function normalizeDifficulty(d) {
-  const v = (d || "").toLowerCase();
-  if (v.includes("baja")) return "easy";
-  if (v.includes("media")) return "medium";
-  if (v.includes("alta")) return "hard";
-  return "medium";
-}
-
-// ----------------------------------------------------------
-// Construir MASTER_QUESTIONS plano y limpio
-// ----------------------------------------------------------
-const MASTER_QUESTIONS = (() => {
-  const master = [];
-
-  if (!raw || typeof raw !== "object") return master;
-
-  Object.entries(raw).forEach(([area, items]) => {
-    if (!Array.isArray(items)) return;
-
-    const code = AREA_TO_CODE[area] || area.toUpperCase().slice(0, 2);
-
-    items.forEach((q, idx) => {
-      const id = q.id || `${code}-${String(idx + 1).padStart(4, "0")}`;
-
-      const correctLetter = extractLetter(q.answer);
-      const processed = processOptions(q.options, correctLetter, q.justification);
-
-      master.push({
-        id,
-        area,
-        subject: code,
-
-        context_text: q.context_text || "",
-        question: q.question || "",
-
-        // Opciones limpias, sin "A) "
-        options: processed.newOptions,
-
-        // Respuesta correcta = TEXTO limpio
-        answer: processed.correctText,
-
-        // Justificación sin letras A/B/C/D
-        justification: processed.newJustification,
-
-        skill: q.skill || "",
-        difficulty_label: q.difficulty || "",
-        difficulty: normalizeDifficulty(q.difficulty),
-        type: q.type || "single",
-        extended: q.extended || null,
-      });
-    });
-  });
-
-  return master;
-})();
-
-// ----------------------------------------------------------
-// Resolver área / código
-// ----------------------------------------------------------
-function resolveAreaAndCode(key) {
-  if (!key) return { area: null, code: null };
-  const lower = key.toLowerCase();
-
-  if (SUBJECT_ALIAS[lower]) {
-    const area = SUBJECT_ALIAS[lower];
-    return { area, code: AREA_TO_CODE[area] };
-  }
-
-  const upper = key.toUpperCase();
-  const found = Object.entries(AREA_TO_CODE).find(([, c]) => c === upper);
-  if (found) return { area: found[0], code: upper };
-
-  return { area: null, code: null };
-}
-
-// ----------------------------------------------------------
-// Obtener preguntas por materia
-// ----------------------------------------------------------
-export function getQuestionsBySubject(subjectKey, { limit = null, shuffle = true } = {}) {
-  if (subjectKey === "all") {
-    let arr = [...MASTER_QUESTIONS];
-    if (shuffle) arr = shuffleArray(arr);
-    if (limit) arr = arr.slice(0, limit);
-    return arr;
-  }
-
-  const { code } = resolveAreaAndCode(subjectKey);
-  if (!code) return [];
-
-  let arr = MASTER_QUESTIONS.filter((q) => q.subject === code);
-  if (shuffle) arr = shuffleArray(arr);
-  if (limit) arr = arr.slice(0, limit);
-
-  return arr;
-}
-
-// ----------------------------------------------------------
-// Mezclar materias (RealSim / mixto)
-// ----------------------------------------------------------
-export function getMixedQuestions(subjects, perSubject = 10) {
-  let all = [];
-
-  subjects.forEach((s) => {
-    const { code } = resolveAreaAndCode(s);
-    if (!code) return;
-
-    const pool = MASTER_QUESTIONS.filter((q) => q.subject === code);
-    all = all.concat(shuffleArray(pool).slice(0, perSubject));
-  });
-
-  return shuffleArray(all);
-}
-
-// ----------------------------------------------------------
-// Compatibilidad
-// ----------------------------------------------------------
-export function prepareQuizFromSubject(key, limit = 10) {
-  return getQuestionsBySubject(key, { limit, shuffle: true });
-}
-
-export function getCombinedPool(perSubject = 10) {
-  return getMixedQuestions(["LQ", "MT", "CN", "CS", "EN"], perSubject);
-}
-
-// ----------------------------------------------------------
-function shuffleArray(arr) {
+// ==========================================================
+//  Utilidades
+// ==========================================================
+function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -225,4 +86,173 @@ function shuffleArray(arr) {
   return a;
 }
 
-export { MASTER_QUESTIONS as InsquizMaster };
+function normalizeOptions(options = []) {
+  return options.map((op, i) => {
+    if (typeof op === "string") {
+      const match = op.match(/^([A-D])\)\s*(.*)$/i);
+      if (match) {
+        return { letter: match[1].toUpperCase(), text: match[2].trim() };
+      }
+      return { letter: String.fromCharCode(65 + i), text: op };
+    }
+    if (op?.letter && op?.text) {
+      return { letter: op.letter.toUpperCase(), text: op.text.trim() };
+    }
+    return { letter: String.fromCharCode(65 + i), text: String(op) };
+  });
+}
+
+function normalizeLetter(x) {
+  if (!x) return "A";
+  const L = x.toString().trim().toUpperCase();
+  return ["A", "B", "C", "D"].includes(L) ? L : "A";
+}
+
+function normalizeQuestion(q, subjectOverride) {
+  const subjectFinal = subjectOverride || normSubject(q.subject);
+  const options = normalizeOptions(q.options);
+  const correct = normalizeLetter(q.correct_letter || q.answer);
+
+  return {
+    id: q.id,
+    subject: subjectFinal,
+    context_text: q.context_text || q.context || "",
+    question: q.question || "",
+    options,
+    answer: correct,
+    correct_letter: correct,
+    justification: q.justification || "",
+    skill: q.skill || "",
+    difficulty: q.difficulty || "",
+  };
+}
+
+// ============================================
+//  FILTRO ANTI-REPETICIÓN (últimas ~600)
+// ============================================
+async function filterHistory(bank) {
+  try {
+    const history = await getHistory(); // IDs recientes
+    if (!history || !history.length) return bank;
+    return bank.filter((q) => !history.includes(q.id));
+  } catch {
+    return bank;
+  }
+}
+
+// =====================================
+//  MODOS
+// =====================================
+
+// Modo clásico: una sola materia
+async function buildClassic(subject, limit) {
+  const S = normSubject(subject);
+
+  if (S === "all") return buildFull(limit);
+
+  let bank = BANKS[S] || [];
+  bank = await filterHistory(bank);
+
+  return shuffle(bank)
+    .slice(0, limit)
+    .map((q) => normalizeQuestion(q, S));
+}
+
+// Modo full: mix equilibrado de todas las materias
+async function buildFull(limit) {
+  // Mezcla de TODOS los bancos
+  let all = [
+    ...BANKS.lectura_critica,
+    ...BANKS.matematicas,
+    ...BANKS.ciencias_naturales,
+    ...BANKS.ciencias_sociales,
+    ...BANKS.ingles,
+  ];
+
+  all = await filterHistory(all);
+
+  return shuffle(all)
+    .slice(0, limit)
+    .map((q) => normalizeQuestion(q));
+}
+
+// Modo azar: reparte el límite proporcional según tamaño de cada banco
+async function buildAzar(limit) {
+  const totals = Object.values(BANKS).reduce((acc, b) => acc + b.length, 0);
+  let result = [];
+
+  for (const key of Object.keys(BANKS)) {
+    const bank = BANKS[key];
+    const proportion = bank.length / totals;
+    const amount = Math.max(1, Math.round(limit * proportion));
+
+    let filtered = await filterHistory(bank);
+
+    result.push(
+      ...shuffle(filtered)
+        .slice(0, amount)
+        .map((q) => normalizeQuestion(q, key))
+    );
+  }
+
+  return shuffle(result).slice(0, limit);
+}
+
+// Modo RealSim: simulacro 390 fragmentado por materia
+function buildRealSim() {
+  const distribution = {
+    lectura_critica: 41,
+    matematicas: 50,
+    ciencias_sociales: 50,
+    ciencias_naturales: 58,
+    ingles: 55,
+  };
+
+  let result = [];
+
+  Object.keys(distribution).forEach((key) => {
+    const count = distribution[key];
+    const bank = BANKS[key] || [];
+
+    result.push(
+      ...shuffle(bank)
+        .slice(0, count)
+        .map((q) => normalizeQuestion(q, key))
+    );
+  });
+
+  return shuffle(result);
+}
+
+// =====================================
+//  API PÚBLICA
+// =====================================
+export async function getQuizByMode(mode, subject, limit = 10) {
+  const m = (mode || "").toLowerCase();
+
+  switch (m) {
+    case "classic":
+      return await buildClassic(subject, limit);
+    case "custom":
+      // Custom utiliza classic con límites personalizados
+      return await buildClassic(subject, limit);
+    case "full":
+      return await buildFull(limit);
+    case "azar":
+      return await buildAzar(limit);
+    case "realsim":
+      return buildRealSim();
+    default:
+      return await buildClassic(subject, limit);
+  }
+}
+
+// Compatibilidad antigua
+export async function getQuestions(subject, count = 10) {
+  return getQuizByMode("classic", subject, count);
+}
+
+// Exponer RealSim para pantallas específicas
+export function generateRealSim() {
+  return buildRealSim();
+}

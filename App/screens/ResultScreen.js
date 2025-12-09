@@ -1,226 +1,204 @@
 // App/screens/ResultScreen.js
 // ==========================================================
-//  INSQUIZ - ResultScreen v3 (unificado + score/500)
+// INSQUIZ — RESULT SCREEN (2025)
+// Evaluación estándar en escala de 500 puntos
+// y acceso a la revisión de preguntas
 // ==========================================================
 
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from "react-native";
-import { calculateScore500 } from "../services/resultService";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
 export default function ResultScreen({ route, navigation }) {
-  const { score = 0, total = 0, area = "Resultado", mode = "practice" } =
-    route.params || {};
+  const {
+    score = 0,
+    total = 1,
+    area = "Resultado",
+    mode = "classic",
+    questions = [],
+  } = route.params || {};
 
-  const [fadeAnim] = useState(new Animated.Value(0));
+  // Porcentaje real
+  const pct = ((score / total) * 100).toFixed(1);
 
-  // 📌 Calcular puntaje sobre 500 (lineal)
-  const score500 = calculateScore500(score, total);
-  const percent = ((score / total) * 100).toFixed(1);
+  // Puntaje estandarizado sobre 500 (ICFES-like)
+  const score500 = Math.round((score / total) * 500);
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  // 🟣 Repetir sesión (mismo modo)
-  const handleRepeat = () => {
-    if (mode === "realsim") {
-      return navigation.replace("RealSimScreen");
-    }
-    if (mode === "adaptive") {
-      return navigation.replace("AdaptivePracticeScreen");
-    }
-    // default → practice
-    navigation.goBack();
-  };
-
-  // 🟣 Revisar (solo Simulacro Real)
-  const canReview = mode === "realsim";
+  function getMessage() {
+    if (score500 >= 450) return "🔥 Rendimiento de nivel superior";
+    if (score500 >= 400) return "🌟 Excelente desempeño";
+    if (score500 >= 350) return "💪 Muy buen resultado";
+    if (score500 >= 300) return "👍 Buen trabajo, sigue practicando";
+    if (score500 >= 250) return "📘 Puedes mejorar, sigue intentándolo";
+    return "🏁 No te rindas, cada intento suma";
+  }
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      {/* Encabezado */}
-      <View style={styles.headerBox}>
-        <Text style={styles.modeText}>{area}</Text>
-        <Text style={styles.subText}>
-          {mode === "realsim"
-            ? "Simulacro Real"
-            : mode === "adaptive"
-            ? "Modo Adaptativo"
-            : "Modo Práctica"}
+    <View style={styles.container}>
+      <Text style={styles.title}>Resultados</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.area}>{area}</Text>
+
+        {/* Puntaje oficial sobre 500 */}
+        <Text style={styles.score500}>
+          {score500}
+          <Text style={styles.of500}> / 500</Text>
         </Text>
-      </View>
 
-      {/* PUNTAJE SOBRE 500 */}
-      <View style={styles.scoreCard}>
-        <Text style={styles.score500}>{score500}</Text>
-        <Text style={styles.over500}>/500</Text>
-        <Text style={styles.percent}>{percent}% de acierto</Text>
-      </View>
+        <Text style={styles.message}>{getMessage()}</Text>
 
-      {/* Detalles */}
-      <View style={styles.detailBox}>
-        <Text style={styles.detailText}>
-          <Text style={styles.bold}>{score}</Text> correctas de{" "}
-          <Text style={styles.bold}>{total}</Text>
+        {/* Puntaje real */}
+        <Text style={styles.subScore}>
+          Puntaje bruto: <Text style={styles.bold}>{score}/{total}</Text>
         </Text>
+
+        <Text style={styles.subScore}>
+          Porcentaje: <Text style={styles.bold}>{pct}%</Text>
+        </Text>
+
+        {/* Modo */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoLabel}>Modo:</Text>
+          <Text style={styles.infoValue}>
+            {mode === "realsim"
+              ? "Simulacro Saber 11"
+              : mode === "adaptive"
+              ? "Práctica Adaptativa"
+              : mode === "azar"
+              ? "Selección Aleatoria"
+              : mode === "full"
+              ? "Mixto Completo"
+              : "Práctica por materia"}
+          </Text>
+        </View>
       </View>
 
-      {/* Botones */}
-      <View style={styles.btnGroup}>
-        {/* Repetir */}
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleRepeat}>
-          <Ionicons name="refresh" size={22} color="#fff" />
-          <Text style={styles.btnPrimaryText}>Repetir</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={() => navigation.replace("MainApp")}
+      >
+        <Text style={styles.btnText}>Volver al inicio</Text>
+      </TouchableOpacity>
 
-        {/* Revisar */}
-        {canReview && (
-          <TouchableOpacity
-            style={[styles.btnPrimary, { backgroundColor: "#0056b3" }]}
-            onPress={() => navigation.navigate("RealSimReviewScreen")}
-          >
-            <MaterialCommunityIcons
-              name="file-search-outline"
-              size={22}
-              color="#fff"
-            />
-            <Text style={styles.btnPrimaryText}>Revisar</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Volver al inicio */}
-        <TouchableOpacity
-          style={styles.btnSecondary}
-          onPress={() =>
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Home" }],
-            })
-          }
-        >
-          <Ionicons name="home-outline" size={22} color="#6a0dad" />
-          <Text style={styles.btnSecondaryText}>Inicio</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() =>
+          navigation.navigate("ReviewScreen", { questions, area, mode })
+        }
+      >
+        <Text style={styles.backText}>Revisar preguntas</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 // ==========================================================
-// 🎨 Estilos
+// ESTILOS
 // ==========================================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fafafa",
-    padding: 20,
-    paddingTop: 70,
+    backgroundColor: "#050509",
+    padding: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  headerBox: {
-    alignItems: "center",
-    marginBottom: 25,
-  },
-  modeText: {
+  title: {
     fontSize: 26,
-    fontWeight: "900",
-    color: "#6a0dad",
-  },
-  subText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 4,
+    fontWeight: "800",
+    color: "#f5f5ff",
+    marginBottom: 20,
   },
 
-  scoreCard: {
-    alignItems: "center",
-    backgroundColor: "#6a0dad",
-    paddingVertical: 28,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+  card: {
+    backgroundColor: "#141320",
+    width: "100%",
+    borderRadius: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: "#26263a",
+    marginBottom: 28,
   },
+
+  area: {
+    fontSize: 16,
+    color: "#a6a8c3",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+
   score500: {
-    fontSize: 70,
+    fontSize: 54,
     fontWeight: "900",
-    color: "#fff",
-    marginBottom: -8,
-  },
-  over500: {
-    fontSize: 22,
-    color: "#e5e5e5",
-    marginBottom: 8,
-  },
-  percent: {
-    fontSize: 18,
-    color: "#fff",
-    opacity: 0.9,
+    color: "#ffcb3b",
+    textAlign: "center",
+    marginVertical: 6,
   },
 
-  detailBox: {
-    marginTop: 26,
-    alignItems: "center",
+  of500: {
+    fontSize: 24,
+    color: "#eaeaff",
+    fontWeight: "600",
   },
-  detailText: {
-    fontSize: 18,
-    color: "#444",
+
+  message: {
+    textAlign: "center",
+    color: "#d8d8ff",
+    marginTop: 6,
+    marginBottom: 16,
+    fontSize: 15,
+    fontWeight: "500",
   },
+
+  subScore: {
+    color: "#c9c9f3",
+    textAlign: "center",
+    marginBottom: 6,
+    fontSize: 14,
+  },
+
   bold: {
-    fontWeight: "bold",
-    color: "#6a0dad",
+    fontWeight: "700",
+    color: "#ffffff",
   },
 
-  btnGroup: {
-    marginTop: 40,
-    alignItems: "center",
-    gap: 14,
+  infoBox: {
+    marginTop: 16,
+    backgroundColor: "#1d1b28",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#2b2a3d",
+  },
+  infoLabel: {
+    color: "#a6a8c3",
+    fontSize: 14,
+  },
+  infoValue: {
+    color: "#f5f5ff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 
-  btnPrimary: {
+  btn: {
     backgroundColor: "#6a0dad",
-    width: "75%",
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 999,
+    marginBottom: 6,
   },
-  btnPrimaryText: {
-    fontSize: 16,
+
+  btnText: {
     color: "#fff",
+    fontSize: 16,
     fontWeight: "700",
   },
 
-  btnSecondary: {
-    borderWidth: 2,
-    borderColor: "#6a0dad",
-    width: "75%",
-    paddingVertical: 12,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  btnSecondaryText: {
-    fontSize: 16,
-    color: "#6a0dad",
-    fontWeight: "700",
+  back: { marginTop: 6 },
+  backText: {
+    color: "#bbb",
+    fontSize: 14,
+    textDecorationLine: "underline",
   },
 });

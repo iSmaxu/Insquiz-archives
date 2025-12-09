@@ -1,111 +1,151 @@
 // App/screens/UserSettingsScreen.js
 import React, { useEffect, useState } from "react";
-import { View, Text, Button, ActivityIndicator, Alert } from "react-native";
-import { getDatabase, ref, get, child } from "firebase/database";
-import { getLicenseToken, clearLicense } from "../services/licenseService";
-import { initializeApp } from "firebase/app";
-import { useNavigation } from "@react-navigation/native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Updates from "expo-updates";
+import { useLicense } from "../context/LicenseContext";
 
-// ⚙️ Config Firebase (misma config que licenseService)
-const firebaseConfig = {
-  apiKey: "AIzaSyCGFQPk4idrDgFpl1f0ixKF7D63vLYjZGA",
-  authDomain: "insquiz-admin.firebaseapp.com",
-  databaseURL: "https://insquiz-admin-default-rtdb.firebaseio.com",
-  projectId: "insquiz-admin",
-  storageBucket: "insquiz-admin.firebasestorage.app",
-  messagingSenderId: "236979447253",
-  appId: "1:236979447253:web:08c9075dbfa1183fa9095c"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-export default function UserSettingsScreen() {
-  const [licenseKey, setLicenseKey] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const navigation = useNavigation();
+export default function UserSettingsScreen({ navigation }) {
+  const { licenseKey, logout } = useLicense();
+  const [maskedKey, setMaskedKey] = useState("");
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const key = await getLicenseToken();
-        if (!key) {
-          setLoading(false);
-          return;
-        }
-        setLicenseKey(key);
+    if (licenseKey) {
+      setMaskedKey(licenseKey.slice(0, 3) + "*".repeat(licenseKey.length - 3));
+    }
+  }, [licenseKey]);
 
-        const snap = await get(child(ref(db), `licenses/${key}`));
-        if (snap.exists()) {
-          const data = snap.val();
-          setClientName(data.clientName || "Desconocido");
-        }
-      } catch (err) {
-        console.error("Error cargando licencia:", err);
-      } finally {
-        setLoading(false);
+  async function handleCheckUpdates() {
+    try {
+      const update = await Updates.checkForUpdateAsync();
+
+      if (update.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        await Updates.reloadAsync(); // reinicio silencioso
+      } else {
+        Alert.alert("Sin actualizaciones", "Ya estás en la última versión.");
       }
-    };
-    load();
-  }, []);
+    } catch (e) {
+      Alert.alert("Error", "No se pudo buscar actualizaciones.");
+    }
+  }
 
-  const maskKey = (key) => {
-    if (!key) return "";
-    const half = Math.floor(key.length / 2);
-    return key.substring(0, half) + "*****";
-  };
-
-  const handleLogout = async () => {
-    await clearLicense();
-    Alert.alert("Sesión cerrada", "Tu licencia fue eliminada del dispositivo.");
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "License" }],
-    });
-  };
-
-  if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#fff",
-        }}
-      >
-        <ActivityIndicator size="large" color="#6a0dad" />
-        <Text style={{ marginTop: 10 }}>Cargando información...</Text>
-      </View>
+  async function handleLogout() {
+    Alert.alert(
+      "Cerrar sesión",
+      "¿Deseas eliminar la licencia y salir?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Cerrar sesión",
+          style: "destructive",
+          onPress: async () => {
+            await logout();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "LicenseScreen" }],
+            });
+          },
+        },
+      ]
     );
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 24,
-        backgroundColor: "#fff",
-      }}
-    >
-      <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 20 }}>
-        Configuración de usuario
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>⚙️ Configuración</Text>
 
-      <Text style={{ fontSize: 16, marginBottom: 10 }}>
-        <Text style={{ fontWeight: "bold" }}>Nombre de la licencia:</Text>{" "}
-        {clientName || "—"}
-      </Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Licencia activa</Text>
 
-      <Text style={{ fontSize: 16, marginBottom: 30 }}>
-        <Text style={{ fontWeight: "bold" }}>Clave actual:</Text>{" "}
-        {maskKey(licenseKey)}
-      </Text>
+        <View style={styles.row}>
+          <Ionicons name="key-outline" size={22} color="#6a0dad" />
+          <Text style={styles.label}>Nombre:</Text>
+          <Text style={styles.value}>Licencia InsQUIZ</Text>
+        </View>
 
-      <Button title="Cerrar sesión" color="#b40000" onPress={handleLogout} />
+        <View style={styles.row}>
+          <Ionicons name="lock-closed-outline" size={22} color="#6a0dad" />
+          <Text style={styles.label}>Licencia:</Text>
+          <Text style={styles.value}>{maskedKey || "Ninguna"}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.button} onPress={handleCheckUpdates}>
+        <Ionicons name="cloud-download-outline" size={22} color="#fff" />
+        <Text style={styles.buttonText}>Buscar actualizaciones</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={22} color="#fff" />
+        <Text style={styles.logoutText}>Cerrar sesión</Text>
+      </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f5f2ff", padding: 20 },
+  title: {
+    fontSize: 26,
+    color: "#6a0dad",
+    fontWeight: "900",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: "#fff",
+    padding: 18,
+    borderRadius: 16,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 18,
+    color: "#6a0dad",
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  row: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  label: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: "#444",
+    fontWeight: "600",
+  },
+  value: {
+    marginLeft: 6,
+    fontSize: 15,
+    color: "#6a0dad",
+    fontWeight: "700",
+  },
+  button: {
+    backgroundColor: "#6a0dad",
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  logoutButton: {
+    backgroundColor: "#d62828",
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoutText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+    marginLeft: 10,
+  },
+});

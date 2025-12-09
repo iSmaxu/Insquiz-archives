@@ -1,154 +1,261 @@
 // App/screens/ProfileScreen.js
+// ==========================================================
+//  INSQUIZ - Mi Rendimiento (XP Engine + Stats + Resultados)
+// ==========================================================
+
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
 import { ProgressBar } from "react-native-paper";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { XP_GetProfile } from "../engines/XP_Engine";
 import { getStats } from "../services/statsService";
-import { LineChart } from "react-native-chart-kit";
-import { Dimensions } from "react-native";
+import { getAllResults } from "../services/resultService"; // historial real
 
 export default function ProfileScreen({ navigation }) {
+  const [xp, setXP] = useState(null);
   const [stats, setStats] = useState(null);
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
     (async () => {
-      const data = await getStats();
-      setStats(data);
+      // 🔥 XP Engine sincronizado
+      const xpProfile = await XP_GetProfile();
+      setXP(xpProfile);
 
-      const savedHistory = await AsyncStorage.getItem("simulacroHistory");
-      if (savedHistory) setHistory(JSON.parse(savedHistory));
+      // 🔥 Estadísticas del sistema real
+      const s = await getStats();
+      setStats(s);
+
+      // 🔥 Historial real (practice + realsim)
+      const results = await getAllResults();
+      setHistory(results.reverse().slice(0, 10)); // últimos 10
     })();
   }, []);
 
-  if (!stats) {
+  // Si nada cargado aún
+  if (!xp || !stats) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Aún no hay datos registrados 📊</Text>
-        <Text style={styles.subtitle}>
-          Realiza simulacros o responde preguntas para ver tu progreso aquí.
-        </Text>
+        <Text style={styles.loading}>Cargando rendimiento…</Text>
       </View>
     );
   }
 
-  const total = stats.totalRespondidas || 0;
-  const correctas = stats.totalCorrectas || 0;
-  const porcentaje = total ? Math.round((correctas / total) * 100) : 0;
+  // --------------------------
+  //  RESUMEN GLOBAL DE STATS
+  // --------------------------
+  const total = stats.totalAnswered || 0;
+  const correct = stats.totalCorrect || 0;
+  const globalPct = total ? ((correct / total) * 100).toFixed(1) : 0;
 
-  const screenWidth = Dimensions.get("window").width - 40;
-  const chartData = {
-    labels: history.map((_, i) => `Sim ${i + 1}`),
-    datasets: [
-      {
-        data: history.map((h) => h.score),
-        strokeWidth: 2,
-      },
-    ],
-  };
+  // --------------------------
+  //  ANALISIS DE SKILLS
+  // --------------------------
+  const skills = stats.skills || {};
 
-  const bestSkill = Object.entries(stats.skills || {}).reduce(
-    (best, [skill, data]) => {
-      const totalSkill = data.buenas + data.malas;
-      const porc = totalSkill ? (data.buenas / totalSkill) * 100 : 0;
-      return porc > best.porcentaje ? { skill, porcentaje: porc } : best;
-    },
-    { skill: "Ninguna", porcentaje: 0 }
-  );
+  const bestSkill = Object.entries(skills).length
+    ? Object.entries(skills).reduce(
+        (best, [skill, val]) => {
+          const pct = val.total > 0 ? (val.correct / val.total) * 100 : 0;
+          return pct > best.pct ? { skill, pct } : best;
+        },
+        { skill: "Ninguna", pct: 0 }
+      )
+    : { skill: "Ninguna", pct: 0 };
 
-  const weakSkill = Object.entries(stats.skills || {}).reduce(
-    (worst, [skill, data]) => {
-      const totalSkill = data.buenas + data.malas;
-      const porc = totalSkill ? (data.buenas / totalSkill) * 100 : 0;
-      return porc < worst.porcentaje ? { skill, porcentaje: porc } : worst;
-    },
-    { skill: "Ninguna", porcentaje: 100 }
-  );
+  const worstSkill = Object.entries(skills).length
+    ? Object.entries(skills).reduce(
+        (worst, [skill, val]) => {
+          const pct = val.total > 0 ? (val.correct / val.total) * 100 : 100;
+          return pct < worst.pct ? { skill, pct } : worst;
+        },
+        { skill: "Ninguna", pct: 100 }
+      )
+    : { skill: "Ninguna", pct: 100 };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+  style={styles.container}
+  contentContainerStyle={{ paddingBottom: 45 }}
+>
+
+      {/* TITULO */}
       <Text style={styles.title}>📈 Mi Rendimiento</Text>
 
+      {/* XP ENGINE */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Resumen general</Text>
-        <Text style={styles.stat}>Preguntas respondidas: {total}</Text>
-        <Text style={styles.stat}>Correctas: {correctas}</Text>
-        <Text style={styles.stat}>Efectividad global: {porcentaje}%</Text>
+        <Text style={styles.section}>Progreso del nivel</Text>
+
+        <Text style={styles.stat}>
+          Nivel actual: <Text style={styles.bold}>{xp.level}</Text>
+        </Text>
+
+        <Text style={styles.stat}>
+          XP:{" "}
+          <Text style={styles.bold}>
+            {xp.xp} / {xp.xpToNext}
+          </Text>
+        </Text>
+
         <ProgressBar
-          progress={porcentaje / 100}
+          progress={xp.xp / xp.xpToNext}
           color="#6a0dad"
-          style={{ height: 8, borderRadius: 8, marginTop: 6 }}
+          style={styles.progress}
         />
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Habilidades destacadas</Text>
-        <Text style={styles.best}>🧠 Mejor: {bestSkill.skill} ({bestSkill.porcentaje.toFixed(1)}%)</Text>
-        <Text style={styles.weak}>⚠️ Débil: {weakSkill.skill} ({weakSkill.porcentaje.toFixed(1)}%)</Text>
-      </View>
-
-      {history.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Evolución de puntajes</Text>
-          <LineChart
-            data={chartData}
-            width={screenWidth}
-            height={220}
-            yAxisSuffix=" pts"
-            chartConfig={{
-              backgroundColor: "#fff",
-              backgroundGradientFrom: "#fafafa",
-              backgroundGradientTo: "#fafafa",
-              color: (opacity = 1) => `rgba(106, 13, 173, ${opacity})`,
-              labelColor: () => "#555",
-              strokeWidth: 2,
-              propsForDots: { r: "5", strokeWidth: "2", stroke: "#6a0dad" },
-            }}
-            bezier
-            style={{ marginVertical: 10, borderRadius: 10 }}
-          />
-        </View>
-      )}
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Recomendación personalizada</Text>
-        <Text style={styles.tip}>
-          {weakSkill.skill !== "Ninguna"
-            ? `📚 Te sugerimos reforzar tus conocimientos en "${weakSkill.skill}".`
-            : "Sigue practicando para mantener tu rendimiento alto 💪"}
+        <Text style={styles.stat}>
+          XP total acumulado: <Text style={styles.bold}>{xp.totalXp}</Text>
         </Text>
       </View>
 
+      {/* RESUMEN GENERAL */}
+      <View style={styles.card}>
+        <Text style={styles.section}>Resumen general</Text>
+        <Text style={styles.stat}>Preguntas respondidas: {total}</Text>
+        <Text style={styles.stat}>Correctas: {correct}</Text>
+        <Text style={styles.stat}>
+          Precisión global: {globalPct}%
+        </Text>
+        <ProgressBar
+          progress={parseFloat(globalPct) / 100}
+          color="#6a0dad"
+          style={styles.progress}
+        />
+      </View>
+
+      {/* HABILIDADES */}
+      <View style={styles.card}>
+        <Text style={styles.section}>Habilidades</Text>
+
+        <Text style={[styles.skillBest]}>
+          🧠 Mejor habilidad:{" "}
+          <Text style={styles.bold}>
+            {bestSkill.skill} ({bestSkill.pct.toFixed(1)}%)
+          </Text>
+        </Text>
+
+        <Text style={[styles.skillWeak]}>
+          ⚠️ Más débil:{" "}
+          <Text style={styles.bold}>
+            {worstSkill.skill} ({worstSkill.pct.toFixed(1)}%)
+          </Text>
+        </Text>
+      </View>
+
+      {/* HISTORIAL DE RESULTADOS */}
+      <View style={styles.card}>
+        <Text style={styles.section}>Historial reciente</Text>
+
+        {history.length === 0 ? (
+          <Text style={styles.stat}>Aún no tienes resultados.</Text>
+        ) : (
+          history.map((item, i) => (
+            <View key={i} style={styles.historyItem}>
+              <Text style={styles.historyText}>
+                {item.area} — {item.correct}/{item.total} ({Math.round(
+                  (item.correct / item.total) * 100
+                )}
+                %)
+              </Text>
+              <Text style={styles.historyDate}>
+                {new Date(item.date).toLocaleDateString()}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      {/* BOTÓN IR A LOGROS */}
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#6a0dad" }]}
+        style={styles.btn}
         onPress={() => navigation.navigate("Achievements")}
       >
-        <Text style={styles.buttonText}>Ver estadísticas detalladas</Text>
+        <Text style={styles.btnText}>Ver logros detallados</Text>
+
       </TouchableOpacity>
+
+      
     </ScrollView>
   );
 }
 
+// ==========================================================
+// 🎨 Estilos
+// ==========================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold", color: "#6a0dad", textAlign: "center", marginVertical: 10 },
-  subtitle: { fontSize: 15, color: "#666", textAlign: "center", paddingHorizontal: 20 },
+
+  title: {
+    fontSize: 26,
+    color: "#6a0dad",
+    fontWeight: "900",
+    textAlign: "center",
+    marginVertical: 10,
+  },
+
   card: {
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f8f5ff",
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
     elevation: 2,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333", marginBottom: 8 },
-  stat: { fontSize: 15, color: "#444", marginVertical: 2 },
-  best: { fontSize: 16, color: "#4caf50", fontWeight: "600" },
-  weak: { fontSize: 16, color: "#f44336", fontWeight: "600", marginTop: 4 },
-  tip: { fontSize: 14, color: "#444", marginTop: 6 },
-  button: { paddingVertical: 12, borderRadius: 10, marginTop: 10 },
-  buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 16 },
+
+  section: {
+    fontSize: 18,
+    color: "#6a0dad",
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+
+  stat: {
+    fontSize: 15,
+    color: "#444",
+    marginVertical: 2,
+  },
+
+  bold: {
+    fontWeight: "900",
+    color: "#6a0dad",
+  },
+
+  progress: {
+    height: 10,
+    borderRadius: 10,
+    marginVertical: 8,
+  },
+
+  skillBest: { fontSize: 15, color: "#4caf50", marginTop: 4 },
+  skillWeak: { fontSize: 15, color: "#e53935", marginTop: 4 },
+
+  historyItem: {
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+
+  historyText: { fontSize: 15, color: "#333", fontWeight: "600" },
+  historyDate: { fontSize: 12, color: "#777", marginTop: 2 },
+
+  btn: {
+    backgroundColor: "#6a0dad",
+    paddingVertical: 12,
+    marginTop: 10,
+    borderRadius: 12,
+  },
+  btnText: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+  },
+
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loading: { fontSize: 16, color: "#6a0dad" },
 });

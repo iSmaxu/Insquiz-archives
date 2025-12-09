@@ -1,62 +1,96 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, StyleSheet, AppState } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getLicenseToken, validateLicenseOnlineDetailed } from "../services/licenseService";
-import LicenseScreen from "../screens/LicenseScreen";
-import DrawerRoot from "../navigation/DrawerRoot";
+// App/components/LicenseGate.js
+import React, { useState, useContext } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
+} from "react-native";
+import { LicenseContext } from "../context/LicenseContext";
 
 export default function LicenseGate() {
-  const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
-  const [token, setToken] = useState(null);
+  const { checkLicense } = useContext(LicenseContext);
 
-  const validate = async () => {
-    try {
-      const localKey = await getLicenseToken();
-      setToken(localKey);
-      if (!localKey) {
-        setAuthorized(false);
-        return;
-      }
+  const [license, setLicense] = useState("");
+  const [loading, setLoading] = useState(false);
 
-      const result = await validateLicenseOnlineDetailed(localKey);
-      setAuthorized(result.valid);
-    } catch (err) {
-      console.warn("Error validando licencia:", err);
-      setAuthorized(false);
-    } finally {
-      setLoading(false);
+  const handleActivate = async () => {
+    if (!license.trim()) {
+      Alert.alert("Error", "Ingresa un código de licencia.");
+      return;
+    }
+
+    setLoading(true);
+    const result = await checkLicense(license.trim());
+    setLoading(false);
+
+    if (result.ok) {
+      Alert.alert("Éxito", "Licencia activada correctamente.");
+    } else {
+      const messages = {
+        LICENSE_NOT_FOUND: "❌ La licencia no existe.",
+        LICENSE_INACTIVE: "⚠️ La licencia está desactivada.",
+        LICENSE_EXPIRED: "⏳ La licencia ha expirado.",
+        MAX_DEVICES_REACHED: "🚫 Se alcanzó el límite de dispositivos.",
+        ERROR: "⚠️ Error inesperado.",
+      };
+
+      Alert.alert("Error", messages[result.reason] || "No se pudo activar la licencia.");
     }
   };
 
-  useEffect(() => {
-    validate();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(validate, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [token]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") validate();
-    });
-    return () => subscription.remove();
-  }, []);
-
   if (loading)
     return (
-      <View style={styles.center}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#6a0dad" />
-        <Text style={styles.text}>Verificando licencia...</Text>
+        <Text style={{ marginTop: 10 }}>Activando licencia...</Text>
       </View>
     );
 
-  return authorized ? <DrawerRoot /> : <LicenseScreen />;
-}
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1, backgroundColor: "#000" }}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ padding: 24, justifyContent: "center", flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "700",
+              color: "#fff",
+              marginBottom: 12,
+              textAlign: "center",
+            }}
+          >
+            Activar licencia
+          </Text>
 
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  text: { color: "#6a0dad", marginTop: 10, fontWeight: "600" },
-});
+          <TextInput
+            placeholder="Código de licencia"
+            placeholderTextColor="#777"
+            value={license}
+            onChangeText={setLicense}
+            autoCapitalize="none"
+            style={{
+              borderWidth: 1,
+              borderColor: "#444",
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 12,
+              color: "#fff",
+            }}
+          />
+
+          <Button title="Activar" color="#6a0dad" onPress={handleActivate} />
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  );
+}

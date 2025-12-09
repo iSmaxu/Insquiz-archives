@@ -1,6 +1,6 @@
 // App/navigation/DrawerRoot.js
 // ==========================================================
-// INSQUIZ - DrawerRoot (Navegador lateral principal)
+//  INSQUIZ - Drawer Root (incluye Debug si licencia = "testing")
 // ==========================================================
 
 import React from "react";
@@ -8,8 +8,11 @@ import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 
-// 🧩 Pantallas
+import { useLicense } from "../context/LicenseContext";
+
+// Pantallas InsQUIZ
 import HomeScreen from "../screens/HomeScreen";
+import CreditsScreen from "../screens/CreditsScreen";
 import PracticeMenuScreen from "../screens/PracticeMenuScreen";
 import AdaptivePracticeScreen from "../screens/AdaptivePracticeScreen";
 import QuizScreen from "../screens/QuizScreen";
@@ -20,6 +23,9 @@ import AchievementsScreen from "../screens/AchievementsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import UserSettingsScreen from "../screens/UserSettingsScreen";
 import LicenseScreen from "../screens/LicenseScreen";
+import ChestsScreen from "../screens/ChestsScreen";
+import HomeScreenDebug from "../screens/HomeScreenDebug";
+import AboutScreen from "../screens/AboutScreen";
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
@@ -29,10 +35,7 @@ const Stack = createStackNavigator();
 // ==========================================================
 function HomeStack() {
   return (
-    <Stack.Navigator
-      initialRouteName="HomeScreen"
-      screenOptions={{ headerShown: false }}
-    >
+    <Stack.Navigator initialRouteName="HomeScreen" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
       <Stack.Screen name="PracticeMenuScreen" component={PracticeMenuScreen} />
       <Stack.Screen name="AdaptivePracticeScreen" component={AdaptivePracticeScreen} />
@@ -40,14 +43,18 @@ function HomeStack() {
       <Stack.Screen name="RealSimScreen" component={RealSimScreen} />
       <Stack.Screen name="RealSimReviewScreen" component={RealSimReviewScreen} />
       <Stack.Screen name="ResultScreen" component={ResultScreen} />
+      <Stack.Screen name="LicenseScreen" component={LicenseScreen} />
     </Stack.Navigator>
   );
 }
 
 // ==========================================================
-// DRAWER
+// DRAWER ROOT
 // ==========================================================
 export default function DrawerRoot() {
+  const { licenseKey } = useLicense();
+  const isDebug = licenseKey === "testing"; // 👈 AQUÍ ESTÁ LA CONDICIÓN CORRECTA
+
   return (
     <Drawer.Navigator
       initialRouteName="Home"
@@ -59,7 +66,7 @@ export default function DrawerRoot() {
         drawerStyle: { backgroundColor: "#f6f0ff", width: 250 },
       }}
     >
-      {/* 🔥 IMPORTANTE: AQUÍ EL NOMBRE DEBE SER "Home" */}
+      {/* HOME */}
       <Drawer.Screen
         name="Home"
         component={HomeStack}
@@ -71,6 +78,33 @@ export default function DrawerRoot() {
         }}
       />
 
+      {/* 🐞 DEBUG — SOLO si licencia es "testing" */}
+      {isDebug && (
+        <Drawer.Screen
+          name="HomeDebug"
+          component={HomeScreenDebug}
+          options={{
+            title: "🐞 Debug Inicio",
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="bug-outline" color={color} size={size} />
+            ),
+          }}
+        />
+      )}
+
+      {/* ABOUT */}
+      <Drawer.Screen
+        name="About"
+        component={AboutScreen}
+        options={{
+          title: "ℹ️ Acerca de",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="information-circle-outline" color={color} size={size} />
+          ),
+        }}
+      />
+
+      {/* LOGROS */}
       <Drawer.Screen
         name="Achievements"
         component={AchievementsScreen}
@@ -82,6 +116,7 @@ export default function DrawerRoot() {
         }}
       />
 
+      {/* PERFIL */}
       <Drawer.Screen
         name="Profile"
         component={ProfileScreen}
@@ -93,6 +128,7 @@ export default function DrawerRoot() {
         }}
       />
 
+      {/* CONFIGURACIÓN */}
       <Drawer.Screen
         name="Settings"
         component={UserSettingsScreen}
@@ -104,13 +140,14 @@ export default function DrawerRoot() {
         }}
       />
 
+      {/* CRÉDITOS */}
       <Drawer.Screen
-        name="License"
-        component={LicenseScreen}
+        name="Credits"
+        component={CreditsScreen}
         options={{
-          title: "🔑 Licencia",
+          title: "📜 Créditos",
           drawerIcon: ({ color, size }) => (
-            <Ionicons name="key-outline" color={color} size={size} />
+            <Ionicons name="information-circle-outline" color={color} size={size} />
           ),
         }}
       />

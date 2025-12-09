@@ -1,4 +1,4 @@
-// App/services/firebaseConfig.js
+// App/firebase/firebaseConfig.js
 // ==========================================================
 // INSQUIZ - Firebase Config (versión segura y persistente)
 // ==========================================================
