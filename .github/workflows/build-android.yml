@@ -1,39 +1,52 @@
-name: Build Android APK
+name: Build InsQUIZ APK (Local — No Queue)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # Ejecutar manualmente desde GitHub Actions
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      # 1️⃣ Descargar repo
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      # 2️⃣ Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      # 3️⃣ Java 17 (requerido por RN 0.81 / Expo SDK 54)
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 4️⃣ Instalar Android SDK y herramientas base
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5️⃣ Instalar EAS CLI globalmente
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
+      # 6️⃣ Instalar dependencias npm
       - name: Install dependencies
         run: npm install
 
-      - name: Login using EXPO_TOKEN
+      # 7️⃣ Construir APK localmente SIN COLA
+      - name: Build APK (Local mode)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas whoami || echo "Expo Auth OK"
+        run: |
+          eas build --platform android --profile preview --local --non-interactive --output apk
 
-      - name: Build (APK)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile preview --non-interactive
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      # 8️⃣ Subir APK generado como artefacto a GitHub
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: eas-build-artifact
-          path: build
+          name: InsQUIZ-APK
+          path: ./build/*.apk
