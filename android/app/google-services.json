@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "236979447253",
+    "firebase_url": "https://insquiz-admin-default-rtdb.firebaseio.com",
+    "project_id": "insquiz-admin",
+    "storage_bucket": "insquiz-admin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:236979447253:android:a0398421abacbb86a9095c",
+        "android_client_info": {
+          "package_name": "com.samux_inc.quizapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "236979447253-o7hgtas7is2fq2c88tuartkbo7pbdi13.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnD2mfLJDOl8M0Y509LNkWwimMmwzJqhM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "236979447253-o7hgtas7is2fq2c88tuartkbo7pbdi13.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
