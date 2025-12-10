@@ -1,18 +1,10 @@
 // app.config.js
 // =====================================================
-// INSQUIZ — Config oficial 2025
-// Con soporte completo para:
-//  - Expo SDK 54
-//  - OTA Updates + Commit Hash
-//  - Push Notifications (FCM)
-//  - Android build compatible con expo-notifications
+// INSQUIZ — Config oficial FCM 2025 (compatible EAS)
 // =====================================================
-
 const { execSync } = require("child_process");
 
-// =====================================================
-// obtener commit (como ya lo tenías antes)
-// =====================================================
+// Obtener commit
 function getGitCommit() {
   try {
     return execSync("git rev-parse --short HEAD").toString().trim();
@@ -20,7 +12,6 @@ function getGitCommit() {
     return "unknown";
   }
 }
-
 const commit = getGitCommit();
 
 module.exports = {
@@ -33,9 +24,6 @@ module.exports = {
     icon: "./assets/icon.png",
     platforms: ["ios", "android"],
 
-    // =====================================================
-    // OTA UPDATES con commit
-    // =====================================================
     updates: {
       enabled: true,
       checkAutomatically: "ON_LOAD",
@@ -44,19 +32,15 @@ module.exports = {
     },
 
     runtimeVersion: "1.2.0",
-
     assetBundlePatterns: ["**/*"],
 
-    // =====================================================
-    // ANDROID — donde sí necesitamos cambios reales
-    // =====================================================
     android: {
       package: "com.samux_inc.quizapp",
 
-      // 🔥 Requerido para expo-notifications en builds reales
+      // 🔥 Requerido para FCM real
       useNextNotificationsApi: true,
 
-      // 🔥 Requerido para FCM (debes tener google-services.json)
+      // 🔥 Path correcto
       googleServicesFile: "./google-services.json",
 
       permissions: [
@@ -75,9 +59,6 @@ module.exports = {
       supportsTablet: true
     },
 
-    // =====================================================
-    // NOTIFICATIONS
-    // =====================================================
     notification: {
       icon: "./assets/notification-icon.png",
       color: "#6A0DAD",
@@ -85,37 +66,29 @@ module.exports = {
       androidCollapsedTitle: "InsQUIZ"
     },
 
-    // =====================================================
-    // PLUGINS
-    // =====================================================
     plugins: [
-  "expo-secure-store",
-  "expo-notifications",
-  [
-    "expo-build-properties",
-    {
-      android: {
-        minSdkVersion: 24,
-        compileSdkVersion: 34,
-        targetSdkVersion: 34
-      }
-    }
-  ]
-],
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            minSdkVersion: 24,
+            compileSdkVersion: 36,
+            targetSdkVersion: 36
+          }
+        }
+      ]
+    ],
 
-
-    // =====================================================
-    // EXTRA CONSTANTS
-    // =====================================================
     extra: {
       eas: {
         projectId: "88af70c7-f822-49b4-8572-1fb698b71413"
       },
 
-      // 🔥 NUEVO: clave FCM añadida directamente
-      fcmServerKey: "AIzaSyCGF.....",
+      // 🔥 OPCIONAL — NO se necesita para recibir tokens
+      fcmServerKey: "IGNÓRALA / NO NECESARIA",
 
-      // commit actual del repo
       commit
     }
   }

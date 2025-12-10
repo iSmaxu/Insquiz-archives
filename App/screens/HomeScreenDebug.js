@@ -1,247 +1,80 @@
-// App/screens/HomeScreenDebug.js
-// =====================================================
-// INSQUIZ — HomeScreen Debug
-// Verifica:
-//  - FCM o Expo Token
-//  - Registro en Firebase
-//  - Estado de Worker Cloudflare
-//  - Commit OTA
-//  - XP Profile
-// =====================================================
-
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
-
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { db } from "../firebase/firebaseConfig";
-import { ref, set } from "firebase/database";
-import { XP_GetProfile } from "../engines/XP_Engine";
-import { useLicense } from "../context/LicenseContext";
-
-// =====================================================
-// Registrar token en Firebase
-// =====================================================
-async function registerPushTokenInDB(token, platform) {
-  try {
-    const safe = token.replace(/[^a-zA-Z0-9]/g, "_");
-
-    await set(ref(db, `pushTokens/${safe}`), {
-      token,
-      platform,
-      createdAt: Date.now(),
-    });
-
-    return true;
-  } catch (e) {
-    console.log("❌ Error guardando token:", e);
-    return false;
-  }
-}
-
-// =====================================================
-// Test Cloudflare Worker
-// =====================================================
-async function testWorker() {
-  try {
-    const res = await fetch(
-      "https://insquiz-push-2025.ivanpereztech4.workers.dev"
-    );
-    return res.status === 200 ? "OK" : "ERROR";
-  } catch {
-    return "DOWN";
-  }
-}
 
 export default function HomeScreenDebug() {
-  const [token, setToken] = useState(null);
-  const [tokenType, setTokenType] = useState("unknown");
-  const [workerStatus, setWorkerStatus] = useState("...");
-  const [commit, setCommit] = useState("...");
-  const [xp, setXp] = useState(null);
-  const { licenseKey } = useLicense();
-  const [loading, setLoading] = useState(true);
+  const [pushToken, setPushToken] = useState("...");
+  const [type, setType] = useState("...");
+  const [log, setLog] = useState([]);
 
-  // =====================================================
-  // 1) Obtener token push
-  // =====================================================
-  async function loadPushToken() {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") return;
+  function addLog(msg) {
+    setLog((p) => [...p, msg]);
+  }
 
-      const pushToken = await Notifications.getExpoPushTokenAsync();
+  async function getToken() {
+    addLog("🔍 Soliciting token...");
+    const perm = await Notifications.requestPermissionsAsync();
+    addLog("Permisos: " + JSON.stringify(perm));
 
-      const tokenStr = pushToken.data;
-      setToken(tokenStr);
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig.extra.eas.projectId,
+    });
 
-      // ¿Es FCM?
-      if (tokenStr.startsWith("ExponentPushToken")) {
-        setTokenType("Expo (NO SERVIRÁ EN BUILD)");
-      } else {
-        setTokenType("FCM (CORRECTO)");
-      }
+    addLog("Token recibido: " + token.data);
 
-      // Guardar en DB
-      await registerPushTokenInDB(tokenStr, "android");
-    } catch (e) {
-      console.log("❌ Error obteniendo token:", e);
+    setPushToken(token.data);
+
+    // Tipo detectado
+    if (token.data.startsWith("ExponentPushToken")) {
+      setType("Expo ❌");
+    } else {
+      setType("FCM token real ✔");
     }
   }
 
-  // =====================================================
-  // 2) Cargar XP Profile y Commit OTA
-  // =====================================================
-  async function loadXP() {
-    const p = await XP_GetProfile();
-    setXp(p);
-  }
-
-  async function loadCommit() {
-    const c = Constants.expoConfig?.extra?.commit ?? "unknown";
-    setCommit(c);
-  }
-
-  // =====================================================
-  // 3) Test Worker
-  // =====================================================
-  async function loadWorkerStatus() {
-    const r = await testWorker();
-    setWorkerStatus(r);
-  }
-
-  // =====================================================
-  // Ejecutar todo
-  // =====================================================
   useEffect(() => {
-    async function run() {
-      await loadPushToken();
-      await loadXP();
-      await loadCommit();
-      await loadWorkerStatus();
-      setLoading(false);
-    }
-    run();
+    getToken();
   }, []);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6a0dad" />
-        <Text style={{ marginTop: 10 }}>Cargando Debug…</Text>
-      </View>
-    );
-  }
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>INSQUIZ — DEBUG PANEL</Text>
+      <Text style={styles.title}>🔧 Debug de Push</Text>
 
-      <DebugItem label="Licencia" value={licenseKey || "Ninguna"} />
-      <DebugItem label="Push Token" value={token || "No generado"} />
-      <DebugItem label="Token Type" value={tokenType} />
-      <DebugItem label="Cloudflare Worker" value={workerStatus} />
-      <DebugItem label="OTA Commit" value={commit} />
+      <Text style={styles.label}>Tipo de Token:</Text>
+      <Text style={styles.value}>{type}</Text>
 
-      <Text style={styles.subtitle}>XP Profile</Text>
-      <DebugItem
-        label="Level"
-        value={xp?.level ?? "?"}
-      />
-      <DebugItem
-        label="XP Actual"
-        value={xp?.xp ?? "?"}
-      />
-      <DebugItem
-        label="Total XP"
-        value={xp?.totalXp ?? "?"}
-      />
+      <Text style={styles.label}>Token:</Text>
+      <Text style={styles.value}>{pushToken}</Text>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => Notifications.scheduleNotificationAsync({
-          content: { title: "Test Local", body: "Esto es una prueba local" },
-          trigger: null
-        })}
-      >
-        <Text style={styles.buttonText}>Probar Notificación Local</Text>
-      </TouchableOpacity>
 
-      <View style={{ height: 70 }} />
+<View style={{ padding: 20, backgroundColor: "#111", borderRadius: 10 }}>
+  <Text style={{ color: "white", fontSize: 12 }}>
+    executionEnvironment: {String(Constants.executionEnvironment)}
+  </Text>
+  <Text style={{ color: "white", fontSize: 12 }}>
+    appOwnership: {String(Constants.appOwnership)}
+  </Text>
+  <Text style={{ color: "white", fontSize: 12 }}>
+    debugMode: {String(Constants.debugMode)}
+  </Text>
+  <Text style={{ color: "white", fontSize: 12 }}>
+    releaseChannel: {String(Constants.releaseChannel)}
+  </Text>
+</View>
+
+      <Text style={styles.label}>Logs:</Text>
+      {log.map((l, i) => (
+        <Text style={styles.log} key={i}>• {l}</Text>
+      ))}
     </ScrollView>
   );
 }
 
-// =====================================================
-// Componentes UI
-// =====================================================
-function DebugItem({ label, value }) {
-  return (
-    <View style={styles.item}>
-      <Text style={styles.itemLabel}>{label}</Text>
-      <Text style={styles.itemValue}>{value}</Text>
-    </View>
-  );
-}
-
-// =====================================================
-// Estilos
-// =====================================================
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#000" },
-
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#6a0dad",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-
-  subtitle: {
-    fontSize: 20,
-    marginTop: 20,
-    fontWeight: "800",
-    color: "#fff",
-  },
-
-  item: {
-    backgroundColor: "#111",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-
-  itemLabel: { color: "#888", fontSize: 14 },
-  itemValue: { color: "#fff", fontSize: 16, marginTop: 4 },
-
-  button: {
-    backgroundColor: "#6a0dad",
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 30,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 15,
-    textAlign: "center",
-    fontWeight: "700",
-  },
+  container: { padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  label: { fontSize: 16, marginTop: 15, fontWeight: "bold" },
+  value: { fontSize: 14, color: "#6a0dad" },
+  log: { marginTop: 5, color: "#333" }
 });
