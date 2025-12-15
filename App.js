@@ -10,10 +10,14 @@ import { LicenseProvider, useLicense } from "./App/context/LicenseContext";
 import { OfflineProvider, useOffline } from "./App/context/OfflineContext";
 import OfflineLossBanner from "./App/components/OfflineLossBanner";
 
-// ⭐⭐ AÑADIR ESTO:
+// Updates
 import { UpdateProvider } from "./App/updates/UpdateContext";
 import UpdateOverlay from "./App/components/UpdateOverlay";
-// ⭐⭐
+
+// ==========================================================
+// 🚫 NOTIFICACIONES COMPLETAMENTE DESACTIVADAS
+// (no OneSignal, no Expo Notifications, no listeners)
+// ==========================================================
 
 function OfflineGuard({ navigationRef }) {
   const { isConnected, offlineLocked } = useOffline();
@@ -21,8 +25,7 @@ function OfflineGuard({ navigationRef }) {
 
   useEffect(() => {
     if (!navigationRef.current) return;
-    const route = navigationRef.current.getCurrentRoute();
-    const name = route?.name;
+    const name = navigationRef.current.getCurrentRoute()?.name;
 
     if (licenseStatus === "invalid" || licenseStatus === "device_blocked") {
       if (name !== "LicenseScreen") {
@@ -47,9 +50,7 @@ function OfflineGuard({ navigationRef }) {
         index: 0,
         routes: [{ name: "OfflineScreen" }],
       });
-      return;
     }
-
   }, [licenseStatus, isConnected, offlineLocked]);
 
   return null;
@@ -62,7 +63,6 @@ export default function App() {
   return (
     <LicenseProvider>
       <OfflineProvider>
-        {/* ⭐⭐ ENGLOBAR TODO EL NAVIGATION EN UpdateProvider ⭐⭐ */}
         <UpdateProvider>
           <NavigationContainer
             ref={navigationRef}
@@ -80,7 +80,6 @@ export default function App() {
             <OfflineGuard navigationRef={navigationRef} />
           </NavigationContainer>
 
-          {/* ⭐⭐ Overlay final ⭐⭐ */}
           <UpdateOverlay currentRouteName={currentRouteName} />
         </UpdateProvider>
       </OfflineProvider>

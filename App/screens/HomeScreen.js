@@ -1,9 +1,9 @@
 // App/screens/HomeScreen.js
 // =====================================================
-//   INSQUIZ — HomeScreen COMPLETA con:
-//   ✨ Detección OTA por commit
-//   ✨ Registro de ExpoPushToken en Firebase
-//   ✨ Logs detallados de depuración
+// INSQUIZ — HomeScreen (ESTABLE · EXPO GO)
+// ✔ Perfil XP
+// ✔ Release notes por OTA (1 sola vez)
+// ✔ Logs claros
 // =====================================================
 
 import React, { useState, useCallback } from "react";
@@ -20,111 +20,69 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";           // ✨ OTA COMMIT
-import * as Updates from "expo-updates";
-import * as Notifications from "expo-notifications";
-
 import { XP_GetProfile } from "../engines/XP_Engine";
 import masterQuestions from "../data/insquiz_master";
-import { registerPushTokenInDB } from "../services/pushService";   // ✨ PUSH SYSTEM
-import BuildInfo from "../components/BuildInfo"; // (opcional)
+import BuildInfo from "../components/BuildInfo";
+
+// 🔥 Release system
+import { checkAndShowReleaseMessage } from "../services/releaseService";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [profile, setProfile] = useState(null);
 
   // ======================================================
-  // 🎯 MAIN EFFECT — Cada vez que entras a HomeScreen
+  // 🎯 EFECTO PRINCIPAL
   // ======================================================
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
+      let active = true;
 
       async function runChecks() {
         console.log("========================================");
-        console.log("🏁 HomeScreen → runChecks() INICIADO");
+        console.log("🏠 HomeScreen → runChecks()");
         console.log("========================================");
 
-        // 1️⃣ Obtener perfil XP
+        // 1️⃣ Perfil XP
         try {
           console.log("📘 Cargando perfil XP...");
           const p = await XP_GetProfile();
-          if (isActive) setProfile(p);
-          console.log("✔ Perfil XP cargado:", p);
+          if (active) setProfile(p);
+          console.log("✔ Perfil XP:", p);
         } catch (e) {
-          console.log("❌ Error cargando XP_GetProfile:", e);
+          console.log("❌ Error XP_GetProfile:", e);
         }
 
-        // 2️⃣ Detectar si hubo OTA update usando commit
-        try {
-          const currentCommit = Constants.expoConfig?.extra?.commit ?? null;
-          console.log("🔍 Commit actual:", currentCommit);
-
-          if (!currentCommit) {
-            console.log("⚠️ NO SE ENCONTRÓ commit. Revisa app.config.js");
-          } else {
-            const lastCommit = await AsyncStorage.getItem("lastCommit");
-            console.log("📦 lastCommit guardado:", lastCommit);
-
-            if (!lastCommit) {
-              console.log("🟣 Guardando commit inicial...");
-              await AsyncStorage.setItem("lastCommit", currentCommit);
-            } else if (lastCommit !== currentCommit) {
-              console.log("🎉 OTA DETECTADA → commit cambió.");
-              await AsyncStorage.setItem("lastCommit", currentCommit);
-
-              Alert.alert(
-                "InsQUIZ actualizado ✨",
-                `Se ha aplicado una nueva actualización.\n\nCommit: ${currentCommit}`,
-                [{ text: "Entendido" }]
-              );
-            }
-          }
-        } catch (e) {
-          console.log("❌ Error verificando OTA:", e);
-        }
-
-        // 3️⃣ Registrar token push en Firebase
-        try {
-          console.log("📣 Registrando ExpoPushToken...");
-          const token = await registerPushTokenInDB();
-          console.log("📣 Resultado registerPushTokenInDB:", token);
-        } catch (e) {
-          console.log("❌ Error registrando push token:", e);
-        }
+        // 2️⃣ Release notes (OTA)
+        await checkAndShowReleaseMessage();
 
         console.log("========================================");
-        console.log("🏁 HomeScreen → runChecks() FINALIZADO");
+        console.log("🏁 HomeScreen → FIN");
         console.log("========================================");
       }
 
       runChecks();
 
       return () => {
-        isActive = false;
+        active = false;
       };
     }, [])
   );
 
   // ======================================================
-  // 🎯 ALERTA ANTES DEL SIMULACRO REAL
+  // 🎯 SIMULACRO REAL
   // ======================================================
   const handleRealSimAlert = () => {
     Alert.alert(
-      "Simulacro Real (240 preguntas)",
-      "Estás a punto de iniciar un simulacro idéntico al examen oficial.\n\n" +
-        "• Contiene 240 preguntas consecutivas.\n" +
-        "• Si sales, perderás el progreso.\n" +
-        "• Asegúrate de tener tiempo y concentración.\n\n" +
-        "¿Deseas comenzar?",
+      "Simulacro Real",
+      "• 254 preguntas consecutivas\n• No se puede pausar\n• Requiere concentración\n\n¿Deseas comenzar?",
       [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Iniciar",
-          style: "default",
           onPress: () => {
             const qs = masterQuestions
+              .slice()
               .sort(() => Math.random() - 0.5)
               .slice(0, 390);
 
@@ -139,13 +97,15 @@ export default function HomeScreen() {
   };
 
   // ======================================================
-  // 🎯 UI GENERAL
+  // 🎨 UI
   // ======================================================
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.appTitle}>InsQUIZ</Text>
-        <Text style={styles.subtitle}>Entrena. Mejora. Domina el examen.</Text>
+        <Text style={styles.subtitle}>
+          Entrena. Mejora. Domina el examen.
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -161,16 +121,19 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* Simulacro Real */}
-      <TouchableOpacity style={styles.mainButton} onPress={handleRealSimAlert}>
+      <TouchableOpacity
+        style={styles.mainButton}
+        onPress={handleRealSimAlert}
+      >
         <Ionicons name="timer-outline" size={30} color="#fff" />
         <View style={styles.textContainer}>
           <Text style={styles.buttonTitle}>Simulacro real</Text>
-          <Text style={styles.buttonDesc}>240 preguntas tipo examen</Text>
+          <Text style={styles.buttonDesc}>
+            Examen completo tipo ICFES
+          </Text>
         </View>
       </TouchableOpacity>
 
-      {/* Logros */}
       <TouchableOpacity
         style={styles.secondaryButton}
         onPress={() => navigation.navigate("Achievements")}
@@ -179,7 +142,6 @@ export default function HomeScreen() {
         <Text style={styles.secondaryText}>Ver mis logros</Text>
       </TouchableOpacity>
 
-      {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
           source={require("../../assets/icon.png")}

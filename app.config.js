@@ -1,10 +1,10 @@
 // app.config.js
 // =====================================================
-// INSQUIZ — Config oficial FCM 2025 (compatible EAS)
+//  INSQUIZ — Config LIMPIA (SIN NOTIFICACIONES)
+//  Compatible con Expo SDK 54 + Expo Go
 // =====================================================
 const { execSync } = require("child_process");
 
-// Obtener commit
 function getGitCommit() {
   try {
     return execSync("git rev-parse --short HEAD").toString().trim();
@@ -19,7 +19,6 @@ module.exports = {
     name: "InsQUIZ",
     slug: "ins-quiz",
     version: "1.0.0",
-    sdkVersion: "54.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     platforms: ["ios", "android"],
@@ -35,40 +34,29 @@ module.exports = {
     assetBundlePatterns: ["**/*"],
 
     android: {
-      package: "com.samux_inc.quizapp",
+      package: "com.samux.inc.quizapp",
 
-      // 🔥 Requerido para FCM real
-      useNextNotificationsApi: true,
-
-      // 🔥 Path correcto
-      googleServicesFile: "./google-services.json",
-
-      permissions: [
-        "NOTIFICATIONS",
-        "VIBRATE",
-        "com.google.android.c2dm.permission.RECEIVE"
-      ],
-
+      // ❌ Sin API de notificaciones
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#6A0DAD"
+        backgroundColor: "#FFFFFF"
       }
     },
 
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      bundleIdentifier: "com.samux.inc.quizapp"
     },
 
-    notification: {
-      icon: "./assets/notification-icon.png",
-      color: "#6A0DAD",
-      androidMode: "default",
-      androidCollapsedTitle: "InsQUIZ"
-    },
+    // ❌ SIN notification:
+    // ❌ SIN expo-notifications
+    // ❌ SIN permisos
+    // ❌ SIN OneSignal
 
     plugins: [
+      // Solo lo que realmente usas
       "expo-secure-store",
-      "expo-notifications",
+
       [
         "expo-build-properties",
         {
@@ -85,10 +73,6 @@ module.exports = {
       eas: {
         projectId: "88af70c7-f822-49b4-8572-1fb698b71413"
       },
-
-      // 🔥 OPCIONAL — NO se necesita para recibir tokens
-      fcmServerKey: "IGNÓRALA / NO NECESARIA",
-
       commit
     }
   }

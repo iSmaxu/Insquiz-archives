@@ -24,38 +24,34 @@ export default function LicenseScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleActivate = async () => {
+    if (!nickname.trim())
+      return Alert.alert("Error", "Ingresa un nickname.");
     if (!license.trim())
       return Alert.alert("Error", "Ingresa un código de licencia.");
 
-    if (!nickname.trim())
-      return Alert.alert("Error", "Ingresa un nickname.");
-
     setLoading(true);
+
     try {
-      // → Se envía: código y nickname
-      const result = await checkLicense(license.trim(), nickname.trim());
+      const res = await checkLicense(license.trim(), nickname.trim());
 
-      if (result.ok) {
+      if (res.ok) {
         Alert.alert("Éxito", "Licencia activada correctamente.");
-
-        // Reiniciar navegación hacia BootScreen
         navigation.reset({
           index: 0,
           routes: [{ name: "Boot" }],
         });
-
         return;
       }
 
       Alert.alert(
         "Error",
         {
-          LICENSE_NOT_FOUND: "❌ La licencia no existe.",
-          LICENSE_INACTIVE: "⚠️ La licencia está desactivada.",
-          LICENSE_EXPIRED: "⏳ La licencia ha expirado.",
-          MAX_DEVICES_REACHED: "🚫 Límite de dispositivos alcanzado.",
-          ERROR: "⚠️ Error inesperado.",
-        }[result.reason] || "No se pudo activar la licencia."
+          LICENSE_NOT_FOUND: "La licencia no existe.",
+          LICENSE_INACTIVE: "La licencia está desactivada.",
+          LICENSE_EXPIRED: "La licencia ha expirado.",
+          MAX_DEVICES_REACHED: "Límite de dispositivos alcanzado.",
+          DEVICE_BLOCKED: "Este dispositivo no puede usar esta licencia.",
+        }[res.reason] || "No se pudo activar la licencia."
       );
     } finally {
       setLoading(false);
@@ -88,13 +84,12 @@ export default function LicenseScreen() {
           >
             Activar licencia
           </Text>
-          {/* Input nickname */}
+
           <TextInput
             placeholder="Ingresa tu nombre"
             placeholderTextColor="#777"
             value={nickname}
             onChangeText={setNickname}
-            autoCapitalize="none"
             style={{
               borderWidth: 1,
               borderColor: "#444",
@@ -104,13 +99,12 @@ export default function LicenseScreen() {
               color: "#fff",
             }}
           />
-          {/* Input licencia */}
+
           <TextInput
             placeholder="Código de licencia"
             placeholderTextColor="#777"
             value={license}
             onChangeText={setLicense}
-            autoCapitalize="none"
             style={{
               borderWidth: 1,
               borderColor: "#444",
@@ -120,8 +114,6 @@ export default function LicenseScreen() {
               color: "#fff",
             }}
           />
-
-
 
           <Button title="Activar" color="#6a0dad" onPress={handleActivate} />
         </View>

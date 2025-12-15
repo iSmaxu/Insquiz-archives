@@ -4,27 +4,20 @@ import { ref, get, update } from "firebase/database";
 import { getDeviceId } from "./DeviceIdService";
 
 export async function validateLicense(licenseKey) {
-  console.log("🔍 VALIDANDO LICENCIA:", licenseKey);
-
   try {
     const deviceId = await getDeviceId();
-    console.log("📱 DeviceID obtenido:", deviceId);
-
     const licenseRef = ref(db, `licenses/${licenseKey}`);
     const snap = await get(licenseRef);
 
     // 1) NO EXISTE
     if (!snap.exists()) {
-      console.log("❌ LICENSE_NOT_FOUND");
       return { ok: false, reason: "LICENSE_NOT_FOUND" };
     }
 
     const lic = snap.val();
-    console.log("📄 Licencia encontrada:", lic);
 
     // 2) INACTIVA
-    if (lic.active !== true) {
-      console.log("❌ LICENSE_INACTIVE");
+    if (!lic.active) {
       return { ok: false, reason: "LICENSE_INACTIVE" };
     }
 
@@ -34,36 +27,24 @@ export async function validateLicense(licenseKey) {
       typeof lic.expiresAt === "number" &&
       Date.now() > lic.expiresAt
     ) {
-      console.log("❌ LICENSE_EXPIRED");
       return { ok: false, reason: "LICENSE_EXPIRED" };
     }
 
-    // 4) OBTENER DEVICES
+    // 4) DISPOSITIVOS
     const devices = lic.devices || {};
     const maxDevices = lic.maxDevices || 1;
 
-    console.log("📦 Devices actuales:", devices);
-    console.log("📦 maxDevices:", maxDevices);
-
-    // ➤ Si YA EXISTE → OK
+    // 4.1 Ya existe → OK
     if (devices[deviceId]) {
-      console.log("✔ Dispositivo ya registrado");
       return { ok: true, reason: "OK_EXISTING_DEVICE" };
     }
 
-    // ➤ Límite alcanzado
-    const totalDevices = Object.keys(devices).length;
-
-    console.log("📊 devicesCount:", totalDevices);
-
-    if (totalDevices >= maxDevices) {
-      console.log("❌ MAX_DEVICES_REACHED");
+    // 4.2 Exceso de dispositivos
+    if (Object.keys(devices).length >= maxDevices) {
       return { ok: false, reason: "MAX_DEVICES_REACHED" };
     }
 
-    // 5) REGISTRAR NUEVO DISPOSITIVO
-    console.log("📝 Registrando nuevo dispositivo…");
-
+    // 5) Registrar nuevo dispositivo
     await update(licenseRef, {
       devices: {
         ...devices,
@@ -71,12 +52,10 @@ export async function validateLicense(licenseKey) {
       },
     });
 
-    console.log("✔ Dispositivo registrado correctamente");
-
     return { ok: true, reason: "NEW_DEVICE_ADDED" };
 
   } catch (err) {
-    console.log("❌ Error en validateLicense:", err);
+    console.log("❌ validateLicense error:", err);
     return { ok: false, reason: "ERROR" };
   }
 }
