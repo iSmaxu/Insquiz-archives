@@ -80,12 +80,9 @@ export default function ResultScreen({ route, navigation }) {
         <Text style={styles.btnText}>Volver al inicio</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.back}
-        onPress={() =>
-          navigation.navigate("ReviewScreen", { questions, area, mode })
-        }
-      >
+<TouchableOpacity
+  onPress={() => navigation.navigate("ReviewScreen")}
+>
         <Text style={styles.backText}>Revisar preguntas</Text>
       </TouchableOpacity>
     </View>

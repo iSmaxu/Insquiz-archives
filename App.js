@@ -1,4 +1,3 @@
-// App.js
 import React, { useEffect, useState } from "react";
 import {
   NavigationContainer,
@@ -6,29 +5,42 @@ import {
 } from "@react-navigation/native";
 
 import RootNavigator from "./App/navigation/RootNavigator";
+
+// Contexts
 import { LicenseProvider, useLicense } from "./App/context/LicenseContext";
 import { OfflineProvider, useOffline } from "./App/context/OfflineContext";
+
+// Components
 import OfflineLossBanner from "./App/components/OfflineLossBanner";
 
 // Updates
 import { UpdateProvider } from "./App/updates/UpdateContext";
 import UpdateOverlay from "./App/components/UpdateOverlay";
 
+// Guards
+import ScreenCaptureGuard from "./App/config/ScreenCaptureGuard";
+import MaintenanceGuard from "./App/services/MaintenanceService";
+
 // ==========================================================
-// 🚫 NOTIFICACIONES COMPLETAMENTE DESACTIVADAS
-// (no OneSignal, no Expo Notifications, no listeners)
+// OFFLINE + LICENSE GUARD
 // ==========================================================
 
 function OfflineGuard({ navigationRef }) {
-  const { isConnected, offlineLocked } = useOffline();
+  const { offlineLocked } = useOffline();
   const { licenseStatus } = useLicense();
 
   useEffect(() => {
     if (!navigationRef.current) return;
-    const name = navigationRef.current.getCurrentRoute()?.name;
 
-    if (licenseStatus === "invalid" || licenseStatus === "device_blocked") {
-      if (name !== "LicenseScreen") {
+    const currentRoute =
+      navigationRef.current.getCurrentRoute()?.name;
+
+    // ❌ Licencia inválida → expulsión inmediata
+    if (
+      licenseStatus === "invalid" ||
+      licenseStatus === "device_blocked"
+    ) {
+      if (currentRoute !== "LicenseScreen") {
         navigationRef.current.reset({
           index: 0,
           routes: [{ name: "LicenseScreen" }],
@@ -37,24 +49,21 @@ function OfflineGuard({ navigationRef }) {
       return;
     }
 
-    if (offlineLocked && name !== "OfflineScreen") {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: "OfflineScreen" }],
-      });
-      return;
-    }
-
-    if (!isConnected && licenseStatus === "active" && name !== "OfflineScreen") {
+    // 📡 Offline vencido → pantalla Offline
+    if (offlineLocked && currentRoute !== "OfflineScreen") {
       navigationRef.current.reset({
         index: 0,
         routes: [{ name: "OfflineScreen" }],
       });
     }
-  }, [licenseStatus, isConnected, offlineLocked]);
+  }, [licenseStatus, offlineLocked]);
 
   return null;
 }
+
+// ==========================================================
+// APP ROOT
+// ==========================================================
 
 export default function App() {
   const navigationRef = useNavigationContainerRef();
@@ -67,19 +76,31 @@ export default function App() {
           <NavigationContainer
             ref={navigationRef}
             onReady={() => {
-              const route = navigationRef.current.getCurrentRoute();
+              const route =
+                navigationRef.current.getCurrentRoute();
               setCurrentRouteName(route?.name);
             }}
             onStateChange={() => {
-              const route = navigationRef.current.getCurrentRoute();
+              const route =
+                navigationRef.current.getCurrentRoute();
               setCurrentRouteName(route?.name);
             }}
           >
+            {/* 🔔 Banner de pérdida de conexión */}
             <OfflineLossBanner />
+
+            {/* 🧭 Navegación principal */}
             <RootNavigator />
+
+            {/* 🛡️ Guards globales (ORDEN IMPORTA) }
             <OfflineGuard navigationRef={navigationRef} />
+            <MaintenanceGuard navigationRef={navigationRef} />
+            <ScreenCaptureGuard
+              currentRouteName={currentRouteName}
+            />*/}
           </NavigationContainer>
 
+          {/* ⬆️ Overlay de updates */}
           <UpdateOverlay currentRouteName={currentRouteName} />
         </UpdateProvider>
       </OfflineProvider>

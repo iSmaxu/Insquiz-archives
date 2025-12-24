@@ -1,5 +1,5 @@
 // ==========================================================
-//  INSQUIZ - CustomModeScreen (Selección de materia)
+//  INSQUIZ - CustomModeScreen
 // ==========================================================
 
 import React, { useState } from "react";
@@ -7,14 +7,18 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import CustomConfigModal from "./CustomConfigModal";
 
 export default function CustomModeScreen({ navigation }) {
-  const [modalData, setModalData] = useState({ visible: false, subject: null, label: null });
+  const [modalData, setModalData] = useState({
+    visible: false,
+    subject: null,
+    label: null,
+  });
 
   const SUBJECTS = [
     { id: "lectura", label: "Lectura Crítica" },
     { id: "matematicas", label: "Matemáticas" },
     { id: "ciencias_sociales", label: "Ciencias Sociales" },
     { id: "ciencias_naturales", label: "Ciencias Naturales" },
-    { id: "ingles", label: "Inglés" }
+    { id: "ingles", label: "Inglés" },
   ];
 
   const openModal = (subject, label) => {

@@ -23,6 +23,13 @@ module.exports = {
     icon: "./assets/icon.png",
     platforms: ["ios", "android"],
 
+    // 👇 SPLASH EXPLÍCITO (ESTO ARREGLA EL MORADO)
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#FFFFFF"
+    },
+
     updates: {
       enabled: true,
       checkAutomatically: "ON_LOAD",
@@ -36,7 +43,6 @@ module.exports = {
     android: {
       package: "com.samux.inc.quizapp",
 
-      // ❌ Sin API de notificaciones
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#FFFFFF"
@@ -48,15 +54,8 @@ module.exports = {
       bundleIdentifier: "com.samux.inc.quizapp"
     },
 
-    // ❌ SIN notification:
-    // ❌ SIN expo-notifications
-    // ❌ SIN permisos
-    // ❌ SIN OneSignal
-
     plugins: [
-      // Solo lo que realmente usas
       "expo-secure-store",
-
       [
         "expo-build-properties",
         {

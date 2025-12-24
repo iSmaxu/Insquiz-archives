@@ -1,10 +1,9 @@
-// App/screens/QuizScreen.js
 // ==========================================================
 // INSQUIZ - QuizScreen con ScrollWrapper optimizado
 // y carga ASÍNCRONA de preguntas + soporte multi-modo
 // ==========================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,30 +16,57 @@ import ScrollWrapper from "../components/ScrollWrapper";
 import { XP_Add, XP_PER_CORRECT } from "../engines/XP_Engine";
 import { getQuestions, getQuizByMode } from "../services/quizService";
 import QuestionCard from "../components/QuestionCard";
+import { useOffline } from "../context/OfflineContext";
+import { saveAttempt } from "../store/AttemptStore";
 
 export default function QuizScreen({ route, navigation }) {
   const { subject, count, subjectLabel, mode } = route.params;
+
+  const { setQuizActive } = useOffline();
 
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // ✅ NUEVO: preguntas respondidas (para revisión)
+  const [answeredQuestions, setAnsweredQuestions] = useState([]);
+
+  // ✅ NUEVO: ref para evitar desfase de estado al finalizar
+  const answeredRef = useRef([]);
+
+  // ==========================================================
+  // 🔐 DECLARAR ESTADO DE QUIZ (CRÍTICO)
+  // ==========================================================
+  useEffect(() => {
+    setQuizActive(true); // 🟢 Entró al quiz
+
+    return () => {
+      setQuizActive(false); // 🔴 Salió del quiz (SIEMPRE)
+    };
+  }, []);
+
+  // ==========================================================
+  // CARGA DE PREGUNTAS
+  // ==========================================================
   useEffect(() => {
     let isMounted = true;
 
     async function load() {
       try {
-        // 1️⃣ Si vienen preguntas inyectadas (RealSim, custom, etc.)
+        // 1️⃣ Preguntas inyectadas (RealSim / custom)
         if (route.params?.questions) {
           if (isMounted) {
             setQuestions(route.params.questions);
             setLoading(false);
+
+            // ✅ reset del intento al cargar nuevas preguntas
+            setAnsweredQuestions([]);
+            answeredRef.current = [];
           }
           return;
         }
 
-        // 2️⃣ Modos normales usando quizService
         let qs = [];
 
         if (mode && mode !== "classic" && mode !== "custom") {
@@ -50,13 +76,16 @@ export default function QuizScreen({ route, navigation }) {
         }
 
         if (isMounted) {
-          setQuestions(Array.isArray(qs) ? qs : []);
+          const arr = Array.isArray(qs) ? qs : [];
+          setQuestions(arr);
+
+          // ✅ reset del intento al cargar nuevas preguntas
+          setAnsweredQuestions([]);
+          answeredRef.current = [];
         }
       } catch (e) {
         console.log("❌ Error cargando preguntas en QuizScreen:", e);
-        if (isMounted) {
-          setQuestions([]);
-        }
+        if (isMounted) setQuestions([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -78,7 +107,7 @@ export default function QuizScreen({ route, navigation }) {
     );
   }
 
-  if (!questions || !questions.length) {
+  if (!questions.length) {
     return (
       <View style={styles.center}>
         <Text>No se recibieron preguntas.</Text>
@@ -88,10 +117,7 @@ export default function QuizScreen({ route, navigation }) {
 
   const current = questions[index];
 
-  // ============================================
-  //  MANEJO DE SIGUIENTE PREGUNTA
-  // ============================================
-  async function handleNext({ wasCorrect }) {
+  async function handleNext({ wasCorrect, letter }) {
     let nextScore = score;
 
     if (wasCorrect) {
@@ -100,17 +126,42 @@ export default function QuizScreen({ route, navigation }) {
       await XP_Add(XP_PER_CORRECT);
     }
 
-    const lastIndex = questions.length - 1;
+    // ✅ NUEVO: registrar pregunta respondida (con userAnswer)
+    const answered = {
+      ...questions[index],
+      userAnswer: (letter || "").toString().trim().toUpperCase(),
+    };
 
-    if (index === lastIndex) {
-      navigation.replace("ResultScreen", {
-        score: nextScore,
-        total: questions.length,
-        area: subjectLabel,
-        mode,
-      });
-    } else {
-      setIndex((i) => i + 1);
+    // Guardar en ref (sin depender del setState)
+    answeredRef.current = [...answeredRef.current, answered];
+
+    // Guardar en state (por si quieres usarlo en UI/analytics después)
+    setAnsweredQuestions(prev => [...prev, answered]);
+
+    if (index === questions.length - 1) {
+  const attempt = {
+    id: `ATT-${Date.now()}`,
+    mode,
+    area: subjectLabel,
+    createdAt: Date.now(),
+    questions: answeredRef.current, // 🔥 incluye userAnswer
+    stats: {
+      total: questions.length,
+      correct: nextScore,
+      incorrect: questions.length - nextScore,
+    },
+  };
+
+  await saveAttempt(attempt);
+
+  navigation.replace("ResultScreen", {
+    score: nextScore,
+    total: questions.length,
+    area: subjectLabel,
+    mode,
+  });
+} else {
+      setIndex(i => i + 1);
     }
   }
 
@@ -140,9 +191,6 @@ export default function QuizScreen({ route, navigation }) {
   );
 }
 
-// ==========================================================
-//  ESTILOS
-// ==========================================================
 const styles = StyleSheet.create({
   header: {
     fontSize: 22,

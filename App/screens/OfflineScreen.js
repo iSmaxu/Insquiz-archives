@@ -11,7 +11,7 @@ export default function OfflineScreen({ navigation }) {
     if (isConnected) {
       navigation.reset({
         index: 0,
-        routes: [{ name: "Boot" }],
+        routes: [{ name: "BootScreen" }],
       });
     }
   }
@@ -23,8 +23,8 @@ export default function OfflineScreen({ navigation }) {
       <Text style={styles.title}>Sin conexión a Internet</Text>
 
       <Text style={styles.text}>
-        InsQUIZ necesita conexión para validar tu licencia
-        y sincronizar tu progreso.
+        Insquiz necesita conexión a internet para poder asegurar la seguridad.
+        Si crees que esto es un error, contacta con soporte.
       </Text>
 
       <Text style={styles.subtext}>

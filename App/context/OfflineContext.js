@@ -16,7 +16,7 @@ export function OfflineProvider({ children }) {
 
   const [isInQuiz, setIsInQuiz] = useState(false);
 
-  const LIMIT = 10 * 60 * 1000; // 10 minutos
+  const LIMIT = 15 * 60 * 1000; // 15 minutos
   const QUIZ_EXTRA = 1 * 60 * 1000; // 1 minuto oculto
 
   // ------------------------------

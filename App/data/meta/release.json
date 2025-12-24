@@ -1,12 +1,12 @@
 {
-  "commit": "1.2.6",
+  "commit": "x.1.3.1",
 
   "title": "InsQUIZ actualizado ✨",
 
-  "subtitle": "Se aplicaron mejoras menores en la aplicación:", 
+  "subtitle": "Se aplicaron mejoras significativamente importantes en la aplicación", 
 
   "changes": [
-    "Optimización del simulacro real"
+    "Sistema de mantenimiento implementado 🛠️"
   ],
 
   "footer": "Gracias por entrenar con InsQUIZ 💜"

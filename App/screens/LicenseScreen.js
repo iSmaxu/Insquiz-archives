@@ -20,25 +20,31 @@ export default function LicenseScreen() {
   const { checkLicense } = useContext(LicenseContext);
 
   const [license, setLicense] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleActivate = async () => {
-    if (!nickname.trim())
-      return Alert.alert("Error", "Ingresa un nickname.");
-    if (!license.trim())
+    if (!fullName.trim()) {
+      return Alert.alert("Error", "Ingresa tu nombre completo.");
+    }
+
+    if (!license.trim()) {
       return Alert.alert("Error", "Ingresa un código de licencia.");
+    }
 
     setLoading(true);
 
     try {
-      const res = await checkLicense(license.trim(), nickname.trim());
+      const res = await checkLicense(
+        license.trim(),
+        fullName.trim()
+      );
 
       if (res.ok) {
         Alert.alert("Éxito", "Licencia activada correctamente.");
         navigation.reset({
           index: 0,
-          routes: [{ name: "Boot" }],
+          routes: [{ name: "BootScreen" }],
         });
         return;
       }
@@ -50,21 +56,23 @@ export default function LicenseScreen() {
           LICENSE_INACTIVE: "La licencia está desactivada.",
           LICENSE_EXPIRED: "La licencia ha expirado.",
           MAX_DEVICES_REACHED: "Límite de dispositivos alcanzado.",
-          DEVICE_BLOCKED: "Este dispositivo no puede usar esta licencia.",
+          ERROR: "Ocurrió un error inesperado.",
         }[res.reason] || "No se pudo activar la licencia."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#6a0dad" />
         <Text style={{ marginTop: 10 }}>Activando licencia...</Text>
       </View>
     );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -86,10 +94,11 @@ export default function LicenseScreen() {
           </Text>
 
           <TextInput
-            placeholder="Ingresa tu nombre"
+            placeholder="Nombre completo"
             placeholderTextColor="#777"
-            value={nickname}
-            onChangeText={setNickname}
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
             style={{
               borderWidth: 1,
               borderColor: "#444",
@@ -105,6 +114,7 @@ export default function LicenseScreen() {
             placeholderTextColor="#777"
             value={license}
             onChangeText={setLicense}
+            autoCapitalize="none"
             style={{
               borderWidth: 1,
               borderColor: "#444",

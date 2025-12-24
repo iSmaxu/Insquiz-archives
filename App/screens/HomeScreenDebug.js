@@ -57,6 +57,7 @@ export default function HomeDebug({ route, navigation }) {
       <Section title="📜 Licencia">
         <Item label="Status" value={licenseStatus} />
         <Item label="Key" value={licenseKey || "—"} />
+        <Text style={styles.muted}>--Test--</Text>
       </Section>
 
       <Section title="🌐 Conectividad">
@@ -119,6 +120,7 @@ function Item({ label, value }) {
     <View style={styles.item}>
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.value}>{String(value)}</Text>
+      
     </View>
   );
 }

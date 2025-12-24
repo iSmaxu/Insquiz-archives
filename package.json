@@ -28,6 +28,7 @@
     "expo-haptics": "~15.0.7",
     "expo-linear-gradient": "~15.0.7",
     "expo-random": "^14.0.1",
+    "expo-screen-capture": "~8.0.9",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-task-manager": "^14.0.9",

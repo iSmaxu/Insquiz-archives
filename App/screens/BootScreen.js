@@ -1,17 +1,23 @@
-// App/screens/BootScreen.js
 // ==========================================================
-//      INSQUIZ - BootScreen PREMIUM (Edición 2025)
-//      Ahora registra actualizaciones OTA y notifica en Home
+// INSQUIZ — BootScreen (LICENCIA CLÁSICA + MANTENIMIENTO)
 // ==========================================================
 
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Animated, Easing, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  Image,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Updates from "expo-updates";
 
 import { useLicense } from "../context/LicenseContext";
 import { useOffline } from "../context/OfflineContext";
+import { isMaintenanceActive } from "../services/MaintenanceService";
 
 export default function BootScreen() {
   const navigation = useNavigation();
@@ -23,29 +29,22 @@ export default function BootScreen() {
   const animFade = useRef(new Animated.Value(0)).current;
 
   const [status, setStatus] = useState("Iniciando…");
+  const [bootStarted, setBootStarted] = useState(false);
 
   // ============================
-  // 🎯 Función: Guardar info de update
-  // ============================
-  async function writeUpdateInfo(info) {
-    await AsyncStorage.setItem("updateAvailable", "true");
-    await AsyncStorage.setItem("updateMessage", info);
-  }
-
-  // ============================
-  // 🎯 Animaciones
+  // Animaciones
   // ============================
   function animateIntro() {
     Animated.parallel([
       Animated.timing(animFade, {
         toValue: 1,
-        duration: 700,
+        duration: 500,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(animLogo, {
         toValue: 1,
-        duration: 900,
+        duration: 700,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
@@ -55,47 +54,47 @@ export default function BootScreen() {
   function animateProgress(to) {
     Animated.timing(animProgress, {
       toValue: to,
-      duration: 450,
+      duration: 350,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false,
     }).start();
   }
 
   // ============================
-  // 🎯 Check de actualizaciones OTA silenciosas
+  // OTA silencioso
   // ============================
   async function checkUpdatesSilent() {
     try {
       const update = await Updates.checkForUpdateAsync();
-
       if (update.isAvailable) {
-        // Guarda la info para HomeScreen
-        await writeUpdateInfo(
-          `Actualización aplicada: ${new Date().toLocaleString()}`
-        );
-
+        await AsyncStorage.setItem("updateAvailable", "true");
         await Updates.fetchUpdateAsync();
         await Updates.reloadAsync();
       }
-    } catch (e) {
-      console.log("OTA Error:", e);
+    } catch {
+      // Expo Go puede fallar aquí, no bloquea
     }
   }
 
   // ============================
-  // 🎯 Flujo principal
+  // BOOT CLÁSICO (NO decide licencia)
   // ============================
   useEffect(() => {
+    let cancelled = false;
+
     animateIntro();
 
     async function boot() {
-      setStatus("Buscando actualizaciones…");
-      animateProgress(15);
+      if (cancelled) return;
 
+      setStatus("Buscando actualizaciones…");
+      animateProgress(10);
       await checkUpdatesSilent();
 
-      // Conexión offline → va a OfflineScreen
-      if (!isConnected) {
+      if (cancelled) return;
+
+      // Offline primero
+      if (!isConnected && !checking) {
         navigation.reset({
           index: 0,
           routes: [{ name: "OfflineScreen" }],
@@ -103,50 +102,58 @@ export default function BootScreen() {
         return;
       }
 
-      setStatus("Validando licencia…");
-      animateProgress(50);
+      setStatus("Verificando sistema…");
+      animateProgress(30);
 
-      await loadLicenseFromStorage();
+      const maintenance = await isMaintenanceActive();
+      if (maintenance) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "MaintenanceScreen" }],
+        });
+        return;
+      }
+
+      setStatus("Validando licencia…");
+      animateProgress(60);
+
+      setBootStarted(true);
+      loadLicenseFromStorage(); // 🔹 como antes, SIN await
     }
 
     boot();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isConnected]);
 
   // ============================
-  // 🎯 Reaccionar a cambios de licencia
+  // REACCIONAR A LICENCIA (SISTEMA ANTIGUO)
   // ============================
   useEffect(() => {
-    if (checking) return;
-    if (!isConnected) return;
+    if (!bootStarted) return;
 
-    if (licenseStatus === "invalid" || licenseStatus === "device_blocked") {
-      setStatus("Licencia requerida");
-      animateProgress(100);
+    if (licenseStatus === "checking") return;
 
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "LicenseScreen" }],
-        });
-      }, 500);
+    if (licenseStatus === "active") {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainApp" }],
+      });
       return;
     }
 
-    if (licenseStatus === "active") {
-      setStatus("Iniciando…");
-      animateProgress(100);
-
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "MainApp" }],
-        });
-      }, 600);
+    if (licenseStatus === "invalid") {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "LicenseScreen" }],
+      });
     }
-  }, [licenseStatus, checking, isConnected]);
+  }, [licenseStatus, bootStarted]);
 
   // ============================
-  // 🎨 Estilos animados
+  // UI
   // ============================
   const logoStyle = {
     opacity: animLogo,

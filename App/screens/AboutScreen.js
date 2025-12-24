@@ -1,87 +1,97 @@
 // App/screens/AboutScreen.js
 // ==========================================================
-//  INSQUIZ - ACERCA DE / MANUAL DE USO (con ScrollWrapper)
+//  INSQUIZ — ACERCA DE / MANUAL DE USO (Nueva Era)
 // ==========================================================
 
 import React from "react";
 import { View, Text, StyleSheet, Linking } from "react-native";
-import ScrollWrapper from "../components/ScrollWrapper"; // ← Barrita tipo Google
+import ScrollWrapper from "../components/ScrollWrapper";
 
 export default function AboutScreen() {
   return (
     <ScrollWrapper style={styles.container}>
-      <Text style={styles.title}>📘 Acerca de InsQUIZ</Text>
+      <Text style={styles.title}>📘 InsQUIZ</Text>
       <Text style={styles.desc}>
-        InsQUIZ es una plataforma diseñada para ayudarte a prepararte de
-        manera rápida, clara y efectiva para el examen ICFES.
+        InsQUIZ es una plataforma educativa diseñada para la preparación real,
+        rigurosa y consciente de las Pruebas Saber 11 (ICFES).
       </Text>
 
-      {/* -------------------- Sección -------------------- */}
+      {/* -------------------- Secciones -------------------- */}
+
+      <Section title="🎯 Propósito">
+        InsQUIZ no es un juego de preguntas ni una app de estudio superficial.
+        Es un sistema de entrenamiento académico que busca exponer al estudiante
+        a condiciones similares a las de un examen real: exigencia, duración,
+        presión y análisis posterior.
+      </Section>
+
       <Section title="🏠 Inicio">
-        Te permite acceder a todos los modos de práctica, simulacros, logros y tu rendimiento general.
+        Desde la pantalla principal puedes acceder a los distintos modos de
+        práctica, al simulacro real, a tu progreso general y a las funciones
+        principales de la aplicación.
       </Section>
 
-      <Section title="🧠 Práctica por áreas">
-        Practica preguntas seleccionando el área que deseas reforzar: Lectura Crítica, Matemáticas,
-        Ciencias Naturales, Sociales o Inglés. Al finalizar podrás ver tu resultado y tu progreso.
-      </Section>
-
-      <Section title="🎯 Modo Adaptativo">
-        Un modo inteligente que ajusta la dificultad automáticamente según tus aciertos y errores.
-        Ideal para entrenar cuando no sabes por dónde empezar o quieres mejorar de forma constante.
+      <Section title="📚 Práctica por áreas">
+        Permite practicar preguntas organizadas por área:
+        Lectura Crítica, Matemáticas, Ciencias Naturales, Ciencias Sociales e Inglés.
+        Cada pregunta cuenta con contexto, respuesta correcta y justificación.
       </Section>
 
       <Section title="📝 Simulacro Real (RealSim)">
-        Un simulacro completo de 278 preguntas distribuidas igual que el examen ICFES real.
-        Al finalizar podrás ver la revisión completa con todas las respuestas correctas y justificaciones.
+        RealSim es un simulacro extenso y exigente, diseñado para reproducir la
+        experiencia de una prueba ICFES real. Evalúa no solo el conocimiento,
+        sino también la resistencia mental, la gestión del tiempo y la concentración.
       </Section>
 
-      <Section title="📊 Mi Rendimiento">
-        Aquí puedes ver tu nivel, experiencia (XP), racha diaria, porcentaje global de respuestas,
-        áreas fuertes, áreas débiles y tu historial reciente de estudio.
+      <Section title="📖 Revisión y aprendizaje">
+        Al finalizar una práctica o simulacro, puedes revisar cada pregunta con
+        su justificación. El objetivo no es solo saber si acertaste, sino entender
+        por qué una opción es correcta y las demás no.
       </Section>
 
-      <Section title="🏅 Logros">
-        Desbloquea logros al completar actividades como resolver preguntas, mantener rachas diarias
-        o finalizar simulacros. Te ayudan a mantener la motivación.
+      <Section title="🧠 Banco académico">
+        InsQUIZ utiliza un banco de preguntas originales, creadas bajo criterios
+        académicos estrictos. Las preguntas no provienen de exámenes reales
+        filtrados ni copiados, sino que están diseñadas para entrenar habilidades
+        reales evaluadas por el ICFES.
       </Section>
 
-      <Section title="🎮 Sistema de XP">
-        Ganas experiencia al responder correctamente. Aumentar tu nivel refleja tu constancia en el estudio.
-      </Section>
 
-      <Section title="📶 Modo Offline">
-        Si pierdes conexión, recibirás una notificación y tendrás 10 minutos antes de que la app te
-        pida reconectar. Si estás en un quiz, podrás terminarlo sin interrupciones.
+      <Section title="📶 Funcionamiento offline">
+        InsQUIZ está diseñada bajo un enfoque offline-first. Si pierdes conexión,
+        la app puede seguir funcionando durante un tiempo limitado y te permitirá
+        finalizar actividades activas sin interrupciones.
       </Section>
 
       <Section title="🔐 Licencias">
-        InsQUIZ requiere una licencia para funcionar. Esta puede tener fecha de expiración o límite
-        de dispositivos. Si algo no es válido, la app te avisará claramente.
+        El uso de InsQUIZ requiere una licencia válida. Esta puede tener fecha de
+        expiración, límite de dispositivos u otras condiciones. La aplicación
+        notificará claramente cualquier problema relacionado con la licencia.
       </Section>
 
       <Section title="⚙️ Configuración">
-        Puedes ver tu licencia actual, buscar actualizaciones, cerrar sesión y acceder a este manual.
+        Desde la configuración puedes consultar tu licencia, buscar
+        actualizaciones, cerrar sesión y acceder a este manual de uso.
       </Section>
 
       <Section title="🕑 Actualizaciones">
-        InsQUIZ se actualiza regularmente con nuevas preguntas, mejoras de rendimiento y nuevas funciones.
-        Asegúrate de mantener la app actualizada para aprovechar al máximo todas sus capacidades.
+        InsQUIZ se encuentra en evolución constante. Las actualizaciones incluyen
+        mejoras de estabilidad, optimización y expansión del contenido académico.
       </Section>
 
-      <Section title="⁉️ Soporte y contacto">
-        Si tienes dudas, sugerencias o necesitas ayuda, puedes contactarnos a través de{" "}
+      <Section title="⁉️ Soporte">
+        Si tienes dudas o necesitas asistencia, puedes comunicarte a través de{" "}
         <Text
-          style={{ color: "#4CAF50", textDecorationLine: "underline" }}
+          style={styles.link}
           onPress={() => Linking.openURL("https://wa.me/3217534005")}
         >
-          nuestro número de soporte
-        </Text>{" "}
-        o visitar nuestra página web oficial.
+          nuestro canal de soporte
+        </Text>
+        .
       </Section>
 
       <Text style={styles.footer}>
-        Versión 1.0 · InsQUIZ © {new Date().getFullYear()}
+        InsQUIZ © {new Date().getFullYear()}
       </Text>
     </ScrollWrapper>
   );
@@ -115,7 +125,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#6a0dad",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   desc: {
     fontSize: 14,
@@ -125,7 +135,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     padding: 14,
     borderRadius: 14,
     elevation: 2,
@@ -141,8 +151,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  link: {
+    color: "#4CAF50",
+    textDecorationLine: "underline",
+  },
   footer: {
-    marginTop: 20,
+    marginTop: 24,
     textAlign: "center",
     color: "#777",
     fontSize: 12,

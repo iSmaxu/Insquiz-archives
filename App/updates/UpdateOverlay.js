@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#141320",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#ff2b2b",
+    borderColor: "#6A0DAD",
   },
   miniTitle: {
     color: "#ff2b2b",
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   miniUpdate: {
-    backgroundColor: "#ff2b2b",
+    backgroundColor: " #6A0DAD",
     borderRadius: 999,
     paddingVertical: 6,
     alignItems: "center",

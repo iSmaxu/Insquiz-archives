@@ -1,4 +1,3 @@
-// App/services/MaintenanceService.js
 // ==========================================================
 // INSQUIZ — MaintenanceService (Expo Go SAFE)
 // ==========================================================
@@ -12,6 +11,6 @@ export async function isMaintenanceActive() {
     return snap.exists() && snap.val() === true;
   } catch (e) {
     console.log("MaintenanceService error:", e);
-    return false;
+    return false; // 🚨 NUNCA bloquear por error
   }
 }

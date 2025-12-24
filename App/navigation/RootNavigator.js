@@ -1,44 +1,56 @@
+// ==========================================================
+// INSQUIZ — Root Navigator (Sistema Maestro)
+// ==========================================================
+
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+// System screens
 import BootScreen from "../screens/BootScreen";
-import LicenseScreen from "../screens/LicenseScreen";
-import DrawerRoot from "./DrawerRoot";
+import MaintenanceScreen from "../screens/MaintenanceScreen";
 import OfflineScreen from "../screens/OfflineScreen";
-import { useLicense } from "../context/LicenseContext";
-import CustomModeScreen from "../screens/CustomMode/CustomModeScreen";
-import ResultScreen from "../screens/ResultScreen";
-import ReviewScreen from "../screens/ReviewScreen";
+import LicenseScreen from "../screens/LicenseScreen";
+
+// Main app
+import DrawerRoot from "./DrawerRoot";
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
-  const { licenseStatus } = useLicense();
-
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="BootScreen"
+      screenOptions={{ headerShown: false }}
+    >
+      {/* 🟣 Arranque */}
+      <Stack.Screen
+        name="BootScreen"
+        component={BootScreen}
+      />
 
-      {/* 1️⃣ Siempre primero */}
-      <Stack.Screen name="Boot" component={BootScreen} />
+      {/* 🛠️ Mantenimiento global */}
+      <Stack.Screen
+        name="MaintenanceScreen"
+        component={MaintenanceScreen}
+      />
 
-      {/* 2️⃣ Si la licencia NO es válida → SOLO LicenseScreen */}
-      {licenseStatus === "invalid" || licenseStatus === "device_blocked" ? (
-        <Stack.Screen name="LicenseScreen" component={LicenseScreen} />
-      ) : null}
+      {/* 📡 Offline */}
+      <Stack.Screen
+        name="OfflineScreen"
+        component={OfflineScreen}
+      />
 
-      {/* 3️⃣ Si la licencia es válida → habilitar la app */}
-      {licenseStatus === "active" ? (
-        <>
-          <Stack.Screen name="MainApp" component={DrawerRoot} />
+      {/* 🔐 Licencia */}
+      <Stack.Screen
+        name="LicenseScreen"
+        component={LicenseScreen}
+      />
 
-        <Stack.Screen name="CustomMode" component={CustomModeScreen} />
-
-          <Stack.Screen name="OfflineScreen" component={OfflineScreen} />
-              <Stack.Screen name="ResultScreen" component={ResultScreen} />
-    <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
-        </>
-      ) : null}
-
+      {/* 🚀 App principal */}
+      <Stack.Screen
+        name="MainApp"
+        component={DrawerRoot}
+      />
     </Stack.Navigator>
   );
 }

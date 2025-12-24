@@ -86,7 +86,7 @@ export default function HomeScreen() {
               .sort(() => Math.random() - 0.5)
               .slice(0, 390);
 
-            navigation.navigate("RealSimScreen", {
+            navigation.navigate("RealSimIntro", {
               questions: qs,
               mode: "realsim",
             });
@@ -149,8 +149,6 @@ export default function HomeScreen() {
           resizeMode="contain"
         />
       </View>
-
-      <BuildInfo />
     </ScrollView>
   );
 }

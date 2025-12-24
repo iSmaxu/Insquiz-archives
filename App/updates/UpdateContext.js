@@ -7,16 +7,17 @@ import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // EDITABLE (para tests)
-export const UPDATE_CHECK_INTERVAL = 15 * 60 * 1000; // 15m (pon 30_000 para test)
+export const UPDATE_CHECK_INTERVAL = 15 * 1000; // 15m (pon 30_000 para test)
 const LAST_UPDATE_ID_KEY = "@insquiz:last_update_id";
 
 // Screens que SON quizes (permiten mini-bolita sin bloquear)
 export const QUIZ_SCREENS = [
   "QuizScreen",
-  "RealSimScreen",
+  "RealSimExamScreen",
   "PracticeCardScreen",
   "PracticeQuizScreen",
-  "AdaptiveQuizScreen"
+  "AdaptiveQuizScreen",
+  "BootScreen"
 ];
 
 const UpdateContext = createContext(null);

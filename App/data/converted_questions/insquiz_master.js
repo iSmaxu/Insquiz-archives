@@ -1,14 +1,15 @@
-/* ===========================================================
+/* =========================================================== 
+  App/data/converted_questions/insquiz_master.js
    INSQUIZ MASTER — Importación INDIVIDUAL garantizada
    Soluciona el problema de 216 preguntas en RealSim
 =========================================================== */
 
 // Importación directa de cada archivo
-import CN from "./converted_questions/cn";
-import MT from "./converted_questions/mt";
-import LQ_raw from "./converted_questions/lq";
-import CS from "./converted_questions/cs";
-import EN from "./converted_questions/en";
+import CN from "./cn";
+import MT from "./mt";
+import LQ_raw from "./lq";
+import CS from "./cs";
+import EN from "./en";
 
 // 🔍 Normalización adicional por si algún subject viene mal normalizado
 const normalize = (arr) =>

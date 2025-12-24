@@ -9,41 +9,38 @@ export const LicenseContext = createContext();
 export function LicenseProvider({ children }) {
   const [licenseKey, setLicenseKey] = useState(null);
   const [licenseStatus, setLicenseStatus] = useState("checking");
+  const [fullName, setFullName] = useState(null);
+  const [maintenanceBypass, setMaintenanceBypass] = useState(false);
 
   // ==========================================================
-  // ✨ ACTIVA LICENCIA — recibe key + nickname
+  // ACTIVAR LICENCIA
   // ==========================================================
-  async function checkLicense(key, nickname) {
+  async function checkLicense(key, name) {
     try {
       const trimmedKey = key.trim();
-      const trimmedNick = nickname.trim();
+      const trimmedName = name.trim();
 
-      if (!trimmedKey || !trimmedNick) {
+      if (!trimmedKey || !trimmedName) {
         return { ok: false, reason: "MISSING_DATA" };
       }
 
-      const res = await validateLicense(trimmedKey);
+      const res = await validateLicense(trimmedKey, trimmedName);
 
       if (res.ok) {
         await AsyncStorage.setItem("INSQUIZ_LICENSE_KEY", trimmedKey);
+        await AsyncStorage.setItem("INSQUIZ_FULL_NAME", trimmedName);
 
         setLicenseKey(trimmedKey);
+        setFullName(trimmedName);
         setLicenseStatus("active");
 
-        // Registrar usuario en /users
-        await registerUserForNotifications(trimmedKey, trimmedNick);
+        await registerUserForNotifications(trimmedKey, trimmedName);
 
         return { ok: true, reason: res.reason };
       }
 
-      if (res.reason === "DEVICE_BLOCKED") {
-        setLicenseStatus("device_blocked");
-        return { ok: false, reason: "DEVICE_BLOCKED" };
-      }
-
       setLicenseStatus("invalid");
       return { ok: false, reason: res.reason };
-
     } catch (error) {
       console.log("❌ Error en checkLicense:", error);
       return { ok: false, reason: "ERROR" };
@@ -51,23 +48,29 @@ export function LicenseProvider({ children }) {
   }
 
   // ==========================================================
-  // CARGAR LICENCIA DESDE STORAGE
+  // CARGAR DESDE STORAGE
   // ==========================================================
   async function loadLicenseFromStorage() {
     const savedKey = await AsyncStorage.getItem("INSQUIZ_LICENSE_KEY");
+    const savedName = await AsyncStorage.getItem("INSQUIZ_FULL_NAME");
+    const bypass = await AsyncStorage.getItem(
+      "INSQUIZ_MAINTENANCE_BYPASS"
+    );
+
+    setMaintenanceBypass(bypass === "true");
 
     if (!savedKey) {
       setLicenseStatus("invalid");
       return;
     }
 
-    const res = await validateLicense(savedKey);
+    setFullName(savedName || null);
+
+    const res = await validateLicense(savedKey, savedName);
 
     if (res.ok) {
       setLicenseKey(savedKey);
       setLicenseStatus("active");
-    } else if (res.reason === "DEVICE_BLOCKED") {
-      setLicenseStatus("device_blocked");
     } else {
       setLicenseStatus("invalid");
     }
@@ -77,39 +80,43 @@ export function LicenseProvider({ children }) {
   // LOGOUT
   // ==========================================================
   async function logout() {
-    await AsyncStorage.removeItem("INSQUIZ_LICENSE_KEY");
+    await AsyncStorage.multiRemove([
+      "INSQUIZ_LICENSE_KEY",
+      "INSQUIZ_FULL_NAME",
+      "INSQUIZ_MAINTENANCE_BYPASS",
+    ]);
     setLicenseKey(null);
+    setFullName(null);
     setLicenseStatus("invalid");
+    setMaintenanceBypass(false);
   }
 
   // ==========================================================
-  // 🔁 Revalidación automática cada 5 segundos
+  // REVALIDACIÓN AUTOMÁTICA (DESACTIVADA SI BYPASS)
   // ==========================================================
   useEffect(() => {
     if (!licenseKey) return;
+    if (maintenanceBypass) return;
 
     const interval = setInterval(async () => {
       if (licenseStatus !== "active") return;
 
-      const res = await validateLicense(licenseKey);
+      const res = await validateLicense(licenseKey, fullName);
 
       if (!res.ok) {
-        if (res.reason === "DEVICE_BLOCKED") {
-          setLicenseStatus("device_blocked");
-        } else {
-          setLicenseStatus("invalid");
-        }
+        setLicenseStatus("invalid");
       }
-    }, 5000);
+    }, 15000);
 
     return () => clearInterval(interval);
-  }, [licenseKey, licenseStatus]);
+  }, [licenseKey, licenseStatus, fullName, maintenanceBypass]);
 
   return (
     <LicenseContext.Provider
       value={{
         licenseKey,
         licenseStatus,
+        fullName,
         checkLicense,
         loadLicenseFromStorage,
         logout,
