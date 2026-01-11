@@ -7,13 +7,13 @@ import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // EDITABLE (para tests)
-export const UPDATE_CHECK_INTERVAL = 15 * 1000; // 15m (pon 30_000 para test)
+export const UPDATE_CHECK_INTERVAL = 0.5 * 1000; // 15m (pon 30_000 para test)
 const LAST_UPDATE_ID_KEY = "@insquiz:last_update_id";
 
 // Screens que SON quizes (permiten mini-bolita sin bloquear)
 export const QUIZ_SCREENS = [
   "QuizScreen",
-  "RealSimExamScreen",
+  "RealSimExam",
   "PracticeCardScreen",
   "PracticeQuizScreen",
   "AdaptiveQuizScreen",
@@ -43,7 +43,6 @@ export function UpdateProvider({ children }) {
     checkingRef.current = true;
 
     try {
-      console.log("[Update] Buscando updates…");
 
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
@@ -76,7 +75,7 @@ export function UpdateProvider({ children }) {
         setUpdateAvailable(true);
       }
     } catch (e) {
-      console.log("[Update] Error verificando update:", e);
+
     }
 
     checkingRef.current = false;

@@ -1,38 +1,44 @@
 // App/engines/HistoryEngine.js
 // ==========================================================
-// INSQUIZ — Historial de ID de preguntas respondidas
-// Evita repetir las últimas 600 preguntas realizadas
+// INSQUIZ - HistoryEngine v1
+// ✅ Guarda IDs recientes (cap 600)
+// ✅ Anti-repetición real
 // ==========================================================
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const HISTORY_KEY = "insquiz_history_ids";
-const LIMIT = 600; // Máximo de IDs guardadas
+const KEY = "@insquiz_history_v1";
+const CAP = 600;
 
-// Guarda una pregunta respondida
-export async function saveHistory(id) {
+export async function getHistory() {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY);
-    let arr = raw ? JSON.parse(raw) : [];
-
-    // Insertar al inicio
-    arr.unshift(id);
-
-    // Limitar a 600
-    if (arr.length > LIMIT) arr = arr.slice(0, LIMIT);
-
-    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
-  } catch (err) {
-    console.log("[HistoryEngine] Error al guardar historial:", err);
+    const raw = await AsyncStorage.getItem(KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
   }
 }
 
-// Devuelve array de IDs
-export async function getHistory() {
+export async function saveHistory(id) {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+    if (!id) return;
+
+    const curr = await getHistory();
+
+    // Evitar duplicado al inicio
+    const filtered = curr.filter((x) => x !== id);
+    const next = [id, ...filtered].slice(0, CAP);
+
+    await AsyncStorage.setItem(KEY, JSON.stringify(next));
+  } catch (e) {
+    console.log("❌ Error saveHistory:", e);
+  }
+}
+
+export async function clearHistory() {
+  try {
+    await AsyncStorage.removeItem(KEY);
+  } catch (e) {
+    console.log("❌ Error clearHistory:", e);
   }
 }

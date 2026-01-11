@@ -1,0 +1,38 @@
+{
+  "title": "Mensaje del sistema",
+  "messages": [
+    {
+      "commit": "I.dev.0002",
+      "licenses": ["dev"],
+      "subtitle": "Mensaje exclusivo para DEV",
+      "changes": [
+        "funciono el sistema a la perfeccion"
+      ],
+      "footer": "Equipo InsQUIZ"
+    },
+    {
+      "commit": "I.mi.girlfriend.0001",
+      "licenses": ["MxS290723"],
+      "subtitle": "Te quiero decir algo",
+      "changes": [
+        "Te amo mucho mi vida bella", 
+        "Eres lo mejor que me ha pasado",
+        "Gracias por estar a mi lado siempre",
+        "Eres mi inspiración diaria",
+        "Perdon por todo mi niña hermosa",
+        "Juntos somos invencibles"
+      ],
+      "footer": "InsQUIZ Educación"
+    },
+    {
+      "commit": "I.user.0001",
+      "licenses": ["ABC-999"],
+      "subtitle": "Mensaje personalizado",
+      "changes": [
+        "Gracias por reportar el bug",
+        "Ya fue corregido"
+      ],
+      "footer": "Soporte InsQUIZ"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 // App/components/OfflineLossBanner.js
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Animated, StyleSheet } from "react-native";
+import { Text, Animated, StyleSheet } from "react-native";
 import { useOffline } from "../context/OfflineContext";
 
 export default function OfflineLossBanner() {
@@ -49,7 +49,7 @@ export default function OfflineLossBanner() {
   return (
     <Animated.View style={[styles.banner, { opacity: fade }]}>
       <Text style={styles.text}>
-        Sin conexión — {mm}:{ss} minutos antes de forzar salida
+        Sin conexión — {mm}:{ss} antes de forzar salida
       </Text>
     </Animated.View>
   );
@@ -65,7 +65,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: "#d62828",
     zIndex: 9999,
-    justifyContent: "center",
     alignItems: "center",
   },
   text: {

@@ -22,23 +22,36 @@ export default function LicenseScreen() {
   const [license, setLicense] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [nameError, setNameError] = useState(false);
 
   const handleActivate = async () => {
-    if (!fullName.trim()) {
+    const cleanName = fullName.trim();
+    const cleanLicense = license.trim();
+
+    // 🔴 Validación: nombre igual a licencia
+    if (cleanName && cleanLicense && cleanName === cleanLicense) {
+      setNameError(true);
+      return Alert.alert(
+        "Datos incorrectos",
+        "Por favor ingrese su nombre real en el apartado que corresponde."
+      );
+    }
+
+    setNameError(false);
+
+    if (!cleanName) {
+      setNameError(true);
       return Alert.alert("Error", "Ingresa tu nombre completo.");
     }
 
-    if (!license.trim()) {
+    if (!cleanLicense) {
       return Alert.alert("Error", "Ingresa un código de licencia.");
     }
 
     setLoading(true);
 
     try {
-      const res = await checkLicense(
-        license.trim(),
-        fullName.trim()
-      );
+      const res = await checkLicense(cleanLicense, cleanName);
 
       if (res.ok) {
         Alert.alert("Éxito", "Licencia activada correctamente.");
@@ -59,7 +72,6 @@ export default function LicenseScreen() {
           ERROR: "Ocurrió un error inesperado.",
         }[res.reason] || "No se pudo activar la licencia."
       );
-
     } finally {
       setLoading(false);
     }
@@ -68,7 +80,7 @@ export default function LicenseScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#6a0dad" />
+        <ActivityIndicator size="large" color="#ad0da0ff" />
         <Text style={{ marginTop: 10 }}>Activando licencia...</Text>
       </View>
     );
@@ -94,14 +106,17 @@ export default function LicenseScreen() {
           </Text>
 
           <TextInput
-            placeholder="Nombre completo"
+            placeholder="Ingresa tu nombre completo"
             placeholderTextColor="#777"
             value={fullName}
-            onChangeText={setFullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              setNameError(false);
+            }}
             autoCapitalize="words"
             style={{
               borderWidth: 1,
-              borderColor: "#444",
+              borderColor: nameError ? "#ff3b3b" : "#444",
               padding: 12,
               borderRadius: 8,
               marginBottom: 18,
@@ -125,7 +140,7 @@ export default function LicenseScreen() {
             }}
           />
 
-          <Button title="Activar" color="#6a0dad" onPress={handleActivate} />
+          <Button title="Activar" color="#920dadff" onPress={handleActivate} />
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

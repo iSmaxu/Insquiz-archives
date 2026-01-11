@@ -1,5 +1,10 @@
 // App/context/LicenseContext.js
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { validateLicense } from "../services/LicenseService";
 import { registerUserForNotifications } from "../services/RegisterUserService";
@@ -27,14 +32,23 @@ export function LicenseProvider({ children }) {
       const res = await validateLicense(trimmedKey, trimmedName);
 
       if (res.ok) {
-        await AsyncStorage.setItem("INSQUIZ_LICENSE_KEY", trimmedKey);
-        await AsyncStorage.setItem("INSQUIZ_FULL_NAME", trimmedName);
+        await AsyncStorage.setItem(
+          "INSQUIZ_LICENSE_KEY",
+          trimmedKey
+        );
+        await AsyncStorage.setItem(
+          "INSQUIZ_FULL_NAME",
+          trimmedName
+        );
 
         setLicenseKey(trimmedKey);
         setFullName(trimmedName);
         setLicenseStatus("active");
 
-        await registerUserForNotifications(trimmedKey, trimmedName);
+        await registerUserForNotifications(
+          trimmedKey,
+          trimmedName
+        );
 
         return { ok: true, reason: res.reason };
       }
@@ -51,27 +65,39 @@ export function LicenseProvider({ children }) {
   // CARGAR DESDE STORAGE
   // ==========================================================
   async function loadLicenseFromStorage() {
-    const savedKey = await AsyncStorage.getItem("INSQUIZ_LICENSE_KEY");
-    const savedName = await AsyncStorage.getItem("INSQUIZ_FULL_NAME");
-    const bypass = await AsyncStorage.getItem(
-      "INSQUIZ_MAINTENANCE_BYPASS"
-    );
+    try {
+      const savedKey = await AsyncStorage.getItem(
+        "INSQUIZ_LICENSE_KEY"
+      );
+      const savedName = await AsyncStorage.getItem(
+        "INSQUIZ_FULL_NAME"
+      );
+      const bypass = await AsyncStorage.getItem(
+        "INSQUIZ_MAINTENANCE_BYPASS"
+      );
 
-    setMaintenanceBypass(bypass === "true");
+      setMaintenanceBypass(bypass === "true");
 
-    if (!savedKey) {
-      setLicenseStatus("invalid");
-      return;
-    }
+      if (!savedKey) {
+        setLicenseStatus("invalid");
+        return;
+      }
 
-    setFullName(savedName || null);
+      setFullName(savedName || null);
 
-    const res = await validateLicense(savedKey, savedName);
+      const res = await validateLicense(
+        savedKey,
+        savedName
+      );
 
-    if (res.ok) {
-      setLicenseKey(savedKey);
-      setLicenseStatus("active");
-    } else {
+      if (res.ok) {
+        setLicenseKey(savedKey);
+        setLicenseStatus("active");
+      } else {
+        setLicenseStatus("invalid");
+      }
+    } catch (err) {
+      console.log("❌ Error cargando licencia:", err);
       setLicenseStatus("invalid");
     }
   }
@@ -85,6 +111,7 @@ export function LicenseProvider({ children }) {
       "INSQUIZ_FULL_NAME",
       "INSQUIZ_MAINTENANCE_BYPASS",
     ]);
+
     setLicenseKey(null);
     setFullName(null);
     setLicenseStatus("invalid");
@@ -101,7 +128,10 @@ export function LicenseProvider({ children }) {
     const interval = setInterval(async () => {
       if (licenseStatus !== "active") return;
 
-      const res = await validateLicense(licenseKey, fullName);
+      const res = await validateLicense(
+        licenseKey,
+        fullName
+      );
 
       if (!res.ok) {
         setLicenseStatus("invalid");
@@ -109,7 +139,12 @@ export function LicenseProvider({ children }) {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [licenseKey, licenseStatus, fullName, maintenanceBypass]);
+  }, [
+    licenseKey,
+    licenseStatus,
+    fullName,
+    maintenanceBypass,
+  ]);
 
   return (
     <LicenseContext.Provider

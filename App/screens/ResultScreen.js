@@ -14,13 +14,10 @@ export default function ResultScreen({ route, navigation }) {
     total = 1,
     area = "Resultado",
     mode = "classic",
-    questions = [],
+    attemptId = null, // ✅ CLAVE: viene desde QuizScreen
   } = route.params || {};
 
-  // Porcentaje real
   const pct = ((score / total) * 100).toFixed(1);
-
-  // Puntaje estandarizado sobre 500 (ICFES-like)
   const score500 = Math.round((score / total) * 500);
 
   function getMessage() {
@@ -39,7 +36,6 @@ export default function ResultScreen({ route, navigation }) {
       <View style={styles.card}>
         <Text style={styles.area}>{area}</Text>
 
-        {/* Puntaje oficial sobre 500 */}
         <Text style={styles.score500}>
           {score500}
           <Text style={styles.of500}> / 500</Text>
@@ -47,7 +43,6 @@ export default function ResultScreen({ route, navigation }) {
 
         <Text style={styles.message}>{getMessage()}</Text>
 
-        {/* Puntaje real */}
         <Text style={styles.subScore}>
           Puntaje bruto: <Text style={styles.bold}>{score}/{total}</Text>
         </Text>
@@ -56,7 +51,6 @@ export default function ResultScreen({ route, navigation }) {
           Porcentaje: <Text style={styles.bold}>{pct}%</Text>
         </Text>
 
-        {/* Modo */}
         <View style={styles.infoBox}>
           <Text style={styles.infoLabel}>Modo:</Text>
           <Text style={styles.infoValue}>
@@ -80,18 +74,22 @@ export default function ResultScreen({ route, navigation }) {
         <Text style={styles.btnText}>Volver al inicio</Text>
       </TouchableOpacity>
 
-<TouchableOpacity
-  onPress={() => navigation.navigate("ReviewScreen")}
->
+      {/* ✅ REVISAR: enviar attemptId */}
+      <TouchableOpacity
+        onPress={() =>
+          navigation.navigate("ReviewScreen", {
+            attemptId,     // ✅ SI NO VA, REVIEW NO ENCUENTRA NADA
+            area,
+            mode,
+          })
+        }
+      >
         <Text style={styles.backText}>Revisar preguntas</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-// ==========================================================
-// ESTILOS
-// ==========================================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -100,14 +98,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   title: {
     fontSize: 26,
     fontWeight: "800",
     color: "#f5f5ff",
     marginBottom: 20,
   },
-
   card: {
     backgroundColor: "#141320",
     width: "100%",
@@ -117,14 +113,12 @@ const styles = StyleSheet.create({
     borderColor: "#26263a",
     marginBottom: 28,
   },
-
   area: {
     fontSize: 16,
     color: "#a6a8c3",
     marginBottom: 6,
     textAlign: "center",
   },
-
   score500: {
     fontSize: 54,
     fontWeight: "900",
@@ -132,13 +126,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 6,
   },
-
   of500: {
     fontSize: 24,
     color: "#eaeaff",
     fontWeight: "600",
   },
-
   message: {
     textAlign: "center",
     color: "#d8d8ff",
@@ -147,19 +139,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
   },
-
   subScore: {
     color: "#c9c9f3",
     textAlign: "center",
     marginBottom: 6,
     fontSize: 14,
   },
-
   bold: {
     fontWeight: "700",
     color: "#ffffff",
   },
-
   infoBox: {
     marginTop: 16,
     backgroundColor: "#1d1b28",
@@ -177,7 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-
   btn: {
     backgroundColor: "#6a0dad",
     paddingVertical: 12,
@@ -185,14 +173,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     marginBottom: 6,
   },
-
   btnText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
-
-  back: { marginTop: 6 },
   backText: {
     color: "#bbb",
     fontSize: 14,

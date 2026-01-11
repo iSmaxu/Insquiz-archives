@@ -1,9 +1,7 @@
 // App/screens/HomeScreen.js
 // =====================================================
-// INSQUIZ — HomeScreen (ESTABLE · EXPO GO)
-// ✔ Perfil XP
-// ✔ Release notes por OTA (1 sola vez)
-// ✔ Logs claros
+// INSQUIZ — HomeScreen (ROUTER EXPLÍCITO)
+// Release global + ERelease dirigidos (NUEVO FLUJO)
 // =====================================================
 
 import React, { useState, useCallback } from "react";
@@ -24,53 +22,76 @@ import { XP_GetProfile } from "../engines/XP_Engine";
 import masterQuestions from "../data/insquiz_master";
 import BuildInfo from "../components/BuildInfo";
 
-// 🔥 Release system
-import { checkAndShowReleaseMessage } from "../services/releaseService";
+import { useLicense } from "../context/LicenseContext";
+
+// 🔥 Servicios
+import { checkAndShowGlobalRelease } from "../services/releaseService";
+import { checkAndConsumeERelease } from "../services/EreleaseService";
+
+// 🔥 Modal
+import EReleaseModal from "../components/EReleaseModal";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [profile, setProfile] = useState(null);
 
-  // ======================================================
-  // 🎯 EFECTO PRINCIPAL
-  // ======================================================
+  const { licenseKey, licenseStatus } = useLicense();
+
+  // 🔥 estado del ERelease
+  const [ereleaseDispatch, setEreleaseDispatch] = useState(null);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
       async function runChecks() {
-        console.log("========================================");
-        console.log("🏠 HomeScreen → runChecks()");
-        console.log("========================================");
+        console.log("🏠 HomeScreen → runChecks");
 
         // 1️⃣ Perfil XP
         try {
-          console.log("📘 Cargando perfil XP...");
           const p = await XP_GetProfile();
           if (active) setProfile(p);
-          console.log("✔ Perfil XP:", p);
         } catch (e) {
-          console.log("❌ Error XP_GetProfile:", e);
+          console.log("❌ XP_GetProfile:", e);
         }
 
-        // 2️⃣ Release notes (OTA)
-        await checkAndShowReleaseMessage();
+        // 2️⃣ Release global
+        await checkAndShowGlobalRelease();
 
-        console.log("========================================");
-        console.log("🏁 HomeScreen → FIN");
-        console.log("========================================");
+        // 3️⃣ ERelease dirigido
+        console.log(
+          "🧪 HomeScreen → intento ERelease",
+          "| status:",
+          licenseStatus,
+          "| key:",
+          licenseKey
+        );
+
+        if (licenseStatus === "active") {
+          const dispatch = await checkAndConsumeERelease(licenseKey);
+
+          if (dispatch && active) {
+            console.log("📨 ERelease aplicado:", dispatch.meta?.id);
+            setEreleaseDispatch(dispatch);
+          } else {
+            console.log("ℹ ERelease no aplicable");
+          }
+        } else {
+          console.log("⚠ ERelease omitido: licencia no activa");
+        }
+
+        console.log("🏁 HomeScreen → FIN runChecks");
       }
 
       runChecks();
-
       return () => {
         active = false;
       };
-    }, [])
+    }, [licenseKey, licenseStatus])
   );
 
   // ======================================================
-  // 🎯 SIMULACRO REAL
+  // SIMULACRO REAL
   // ======================================================
   const handleRealSimAlert = () => {
     Alert.alert(
@@ -96,65 +117,72 @@ export default function HomeScreen() {
     );
   };
 
-  // ======================================================
-  // 🎨 UI
-  // ======================================================
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.appTitle}>InsQUIZ</Text>
-        <Text style={styles.subtitle}>
-          Entrena. Mejora. Domina el examen.
-        </Text>
-      </View>
+    <>
+      {/* 🔥 MODAL ERELEASE */}
+      <EReleaseModal
+        dispatch={ereleaseDispatch}
+        onClose={() => setEreleaseDispatch(null)}
+      />
 
-      <TouchableOpacity
-        style={styles.mainButton}
-        onPress={() => navigation.navigate("PracticeMenuScreen")}
-      >
-        <Ionicons name="book-outline" size={30} color="#fff" />
-        <View style={styles.textContainer}>
-          <Text style={styles.buttonTitle}>Modo práctica</Text>
-          <Text style={styles.buttonDesc}>
-            Ejercita tus habilidades por materia
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.appTitle}>InsQUIZ</Text>
+          <Text style={styles.subtitle}>
+            Entrena. Mejora. Domina el examen.
           </Text>
         </View>
-      </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.mainButton}
-        onPress={handleRealSimAlert}
-      >
-        <Ionicons name="timer-outline" size={30} color="#fff" />
-        <View style={styles.textContainer}>
-          <Text style={styles.buttonTitle}>Simulacro real</Text>
-          <Text style={styles.buttonDesc}>
-            Examen completo tipo ICFES
-          </Text>
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={() => navigation.navigate("PracticeMenuScreen")}
+        >
+          <Ionicons name="book-outline" size={30} color="#fff" />
+          <View style={styles.textContainer}>
+            <Text style={styles.buttonTitle}>Modo práctica</Text>
+            <Text style={styles.buttonDesc}>
+              Ejercita tus habilidades por materia
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={handleRealSimAlert}
+        >
+          <Ionicons name="timer-outline" size={30} color="#fff" />
+          <View style={styles.textContainer}>
+            <Text style={styles.buttonTitle}>Simulacro real</Text>
+            <Text style={styles.buttonDesc}>
+              Examen completo tipo ICFES
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("Achievements")}
+        >
+          <Ionicons name="trophy-outline" size={26} color="#6a0dad" />
+          <Text style={styles.secondaryText}>Ver mis logros</Text>
+        </TouchableOpacity>
+
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../assets/icon.png")}
+            style={styles.image}
+            resizeMode="contain"
+          />
         </View>
-      </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => navigation.navigate("Achievements")}
-      >
-        <Ionicons name="trophy-outline" size={26} color="#6a0dad" />
-        <Text style={styles.secondaryText}>Ver mis logros</Text>
-      </TouchableOpacity>
-
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("../../assets/icon.png")}
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </View>
-    </ScrollView>
+        <BuildInfo />
+      </ScrollView>
+    </>
   );
 }
 
 // ======================================================
-// 🎨 ESTILOS
+// ESTILOS
 // ======================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },

@@ -1,6 +1,6 @@
 // App/context/QuizContext.js
 // ==========================================================
-// INSQUIZ - Quiz Context (estado global)
+// Didactiq - Quiz Context (estado global)
 // ==========================================================
 import React, { createContext, useState } from "react";
 

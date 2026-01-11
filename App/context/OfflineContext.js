@@ -1,37 +1,56 @@
 // App/context/OfflineContext.js
-import React, { createContext, useContext, useEffect, useState } from "react";
+
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import NetInfo from "@react-native-community/netinfo";
 
 const OfflineContext = createContext();
 
 export function OfflineProvider({ children }) {
+  // ------------------------------
+  // ESTADOS PRINCIPALES
+  // ------------------------------
   const [isConnected, setIsConnected] = useState(true);
   const [checking, setChecking] = useState(false);
 
   const [offlineSince, setOfflineSince] = useState(null);
   const [lostConnectionAt, setLostConnectionAt] = useState(null);
+  const [connectionRecoveredAt, setConnectionRecoveredAt] = useState(null);
 
   const [offlineLocked, setOfflineLocked] = useState(false);
   const [offlineLockPending, setOfflineLockPending] = useState(false);
 
   const [isInQuiz, setIsInQuiz] = useState(false);
 
-  const LIMIT = 15 * 60 * 1000; // 15 minutos
-  const QUIZ_EXTRA = 1 * 60 * 1000; // 1 minuto oculto
+  // ------------------------------
+  // CONSTANTES DE POLÍTICA
+  // ------------------------------
+  const LIMIT = 15 * 60 * 1000;     // 15 minutos offline reales
+  const QUIZ_EXTRA = 1 * 60 * 1000; // 1 minuto extra post-quiz
+  const CHECK_TIMEOUT = 2500;      // timeout red real
+  const CHECK_INTERVAL = 5000;     // verificación periódica
 
   // ------------------------------
-  // Verificar internet REAL
+  // VERIFICAR INTERNET REAL
   // ------------------------------
   async function checkRealInternet() {
     try {
       setChecking(true);
 
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 2500);
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        CHECK_TIMEOUT
+      );
 
-      const res = await fetch("https://www.google.com/generate_204", {
-        signal: ctrl.signal,
-      });
+      const res = await fetch(
+        "https://www.google.com/generate_204",
+        { signal: controller.signal }
+      );
 
       clearTimeout(timeout);
       return res.status === 204;
@@ -43,50 +62,60 @@ export function OfflineProvider({ children }) {
   }
 
   // ------------------------------
-  // DETECTAR CAMBIO DE RED
+  // DETECTOR DE CAMBIOS DE RED
   // ------------------------------
   useEffect(() => {
-    const unsub = NetInfo.addEventListener(async (state) => {
-      const basic = !!state.isConnected;
+    const unsubscribe = NetInfo.addEventListener(async (state) => {
+      const hasNetworkInterface = !!state.isConnected;
 
-      if (!basic) {
-        // Primera vez sin conexión
+      // 🔴 Red ausente (no interfaz)
+      if (!hasNetworkInterface) {
         if (isConnected) setLostConnectionAt(Date.now());
         setIsConnected(false);
         setOfflineSince((prev) => prev || Date.now());
         return;
       }
 
-      const real = await checkRealInternet();
-      if (!real) {
+      // 🟡 Hay red, pero verificamos internet real
+      const realInternet = await checkRealInternet();
+
+      if (!realInternet) {
         if (isConnected) setLostConnectionAt(Date.now());
         setIsConnected(false);
         setOfflineSince((prev) => prev || Date.now());
-      } else {
-        // Volvió internet
-        setIsConnected(true);
-        setOfflineSince(null);
-        setOfflineLocked(false);
-        setOfflineLockPending(false);
-        setLostConnectionAt(null);
+        return;
       }
+
+      // 🟢 Conexión recuperada
+      if (!isConnected) {
+        setConnectionRecoveredAt(Date.now());
+      }
+
+      setIsConnected(true);
+      setOfflineSince(null);
+      setOfflineLocked(false);
+      setOfflineLockPending(false);
+      setLostConnectionAt(null);
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [isConnected]);
 
   // ------------------------------
-  // CRONÓMETRO DE 10 MINUTOS
+  // CRONÓMETRO OFFLINE REAL
   // ------------------------------
   useEffect(() => {
     if (!offlineSince) return;
 
     const interval = setInterval(async () => {
       const real = await checkRealInternet();
+
+      // Se recuperó durante la ventana
       if (real) {
-        // Recuperó conexión
         setIsConnected(true);
         setOfflineSince(null);
+        setOfflineLocked(false);
+        setOfflineLockPending(false);
         return;
       }
 
@@ -94,20 +123,18 @@ export function OfflineProvider({ children }) {
 
       if (elapsed >= LIMIT) {
         if (isInQuiz) {
-          // Marcar que al salir del quiz debe expulsarse
           setOfflineLockPending(true);
         } else {
-          // Expulsión inmediata
           setOfflineLocked(true);
         }
       }
-    }, 5000);
+    }, CHECK_INTERVAL);
 
     return () => clearInterval(interval);
   }, [offlineSince, isInQuiz]);
 
   // ------------------------------
-  // APLICAR 1 MINUTO EXTRA DESPUÉS DEL QUIZ
+  // MINUTO EXTRA DESPUÉS DEL QUIZ
   // ------------------------------
   useEffect(() => {
     if (!isInQuiz && offlineLockPending) {
@@ -120,14 +147,22 @@ export function OfflineProvider({ children }) {
     }
   }, [isInQuiz, offlineLockPending]);
 
+  // ------------------------------
+  // CONTEXTO EXPUESTO
+  // ------------------------------
   return (
     <OfflineContext.Provider
       value={{
         isConnected,
         checking,
-        lostConnectionAt,
-        offlineLocked,
+
         offlineSince,
+        lostConnectionAt,
+        connectionRecoveredAt,
+
+        offlineLocked,
+        offlineLockPending,
+
         isInQuiz,
         setQuizActive: setIsInQuiz,
       }}
@@ -137,6 +172,9 @@ export function OfflineProvider({ children }) {
   );
 }
 
+// ------------------------------
+// HOOK
+// ------------------------------
 export function useOffline() {
   return useContext(OfflineContext);
 }

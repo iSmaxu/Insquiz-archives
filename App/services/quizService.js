@@ -1,13 +1,16 @@
 // App/services/quizService.js
 // ==========================================================
-// INSQUIZ - QUIZ ENGINE v5
-// ahora con prevención de repetición (últimas 600)
-// y fragmentación por materia en modos específicos
+// INSQUIZ - QUIZ ENGINE v5.1
+// ✅ Prevención repetición (últimas 600)
+// ✅ Fragmentación por materia
+// ✅ Modos: classic/custom/full/azar/realsim
+// ✅ Normalización robusta de preguntas
+// ✅ Acceso determinista por ID (debug / testing)
 // ==========================================================
 
 import { getHistory } from "../engines/HistoryEngine";
 
-// Bancos fragmentados (ya vienen en formato master-like)
+// Bancos fragmentados
 import CN from "../data/converted_questions/cn";
 import CS from "../data/converted_questions/cs";
 import EN from "../data/converted_questions/en";
@@ -63,19 +66,17 @@ function normSubject(s) {
     // Inglés
     en: "ingles",
     ing: "ingles",
-    "ingles": "ingles",
+    ingles: "ingles",
   };
 
   if (map[s]) return map[s];
-
-  // fallback: por si acaso ya viene bien
   if (BANKS[s]) return s;
 
   return s;
 }
 
 // ==========================================================
-//  Utilidades
+// Utilidades
 // ==========================================================
 function shuffle(arr) {
   const a = [...arr];
@@ -91,14 +92,28 @@ function normalizeOptions(options = []) {
     if (typeof op === "string") {
       const match = op.match(/^([A-D])\)\s*(.*)$/i);
       if (match) {
-        return { letter: match[1].toUpperCase(), text: match[2].trim() };
+        return {
+          letter: match[1].toUpperCase(),
+          text: match[2].trim(),
+        };
       }
-      return { letter: String.fromCharCode(65 + i), text: op };
+      return {
+        letter: String.fromCharCode(65 + i),
+        text: op,
+      };
     }
+
     if (op?.letter && op?.text) {
-      return { letter: op.letter.toUpperCase(), text: op.text.trim() };
+      return {
+        letter: op.letter.toUpperCase(),
+        text: op.text.trim(),
+      };
     }
-    return { letter: String.fromCharCode(65 + i), text: String(op) };
+
+    return {
+      letter: String.fromCharCode(65 + i),
+      text: String(op),
+    };
   });
 }
 
@@ -110,41 +125,52 @@ function normalizeLetter(x) {
 
 function normalizeQuestion(q, subjectOverride) {
   const subjectFinal = subjectOverride || normSubject(q.subject);
-  const options = normalizeOptions(q.options);
+  const options = normalizeOptions(q.options || []);
   const correct = normalizeLetter(q.correct_letter || q.answer);
+
+  
 
   return {
     id: q.id,
     subject: subjectFinal,
+
+    // 🔹 CONTENIDO
     context_text: q.context_text || q.context || "",
     question: q.question || "",
+
+    // 🔹 OPCIONES CLÁSICAS
     options,
     answer: correct,
     correct_letter: correct,
+
+    // 🔹 🔥 PRESERVAR TIPO Y ITEMS
+    type: q.type || "single",
+    items: Array.isArray(q.items) ? q.items : null,
+
+    // 🔹 META
     justification: q.justification || "",
     skill: q.skill || "",
     difficulty: q.difficulty || "",
   };
 }
 
-// ============================================
+// ==========================================================
 //  FILTRO ANTI-REPETICIÓN (últimas ~600)
-// ============================================
+// ==========================================================
 async function filterHistory(bank) {
   try {
-    const history = await getHistory(); // IDs recientes
+    const history = await getHistory();
     if (!history || !history.length) return bank;
-    return bank.filter((q) => !history.includes(q.id));
+    const set = new Set(history);
+    return bank.filter(q => !set.has(q.id));
   } catch {
     return bank;
   }
 }
 
-// =====================================
+// ==========================================================
 //  MODOS
-// =====================================
-
-// Modo clásico: una sola materia
+// ==========================================================
 async function buildClassic(subject, limit) {
   const S = normSubject(subject);
 
@@ -155,12 +181,10 @@ async function buildClassic(subject, limit) {
 
   return shuffle(bank)
     .slice(0, limit)
-    .map((q) => normalizeQuestion(q, S));
+    .map(q => normalizeQuestion(q, S));
 }
 
-// Modo full: mix equilibrado de todas las materias
 async function buildFull(limit) {
-  // Mezcla de TODOS los bancos
   let all = [
     ...BANKS.lectura_critica,
     ...BANKS.matematicas,
@@ -173,17 +197,16 @@ async function buildFull(limit) {
 
   return shuffle(all)
     .slice(0, limit)
-    .map((q) => normalizeQuestion(q));
+    .map(q => normalizeQuestion(q));
 }
 
-// Modo azar: reparte el límite proporcional según tamaño de cada banco
 async function buildAzar(limit) {
-  const totals = Object.values(BANKS).reduce((acc, b) => acc + b.length, 0);
+  const totals = Object.values(BANKS).reduce((a, b) => a + b.length, 0);
   let result = [];
 
   for (const key of Object.keys(BANKS)) {
-    const bank = BANKS[key];
-    const proportion = bank.length / totals;
+    const bank = BANKS[key] || [];
+    const proportion = totals ? bank.length / totals : 0.2;
     const amount = Math.max(1, Math.round(limit * proportion));
 
     let filtered = await filterHistory(bank);
@@ -191,15 +214,14 @@ async function buildAzar(limit) {
     result.push(
       ...shuffle(filtered)
         .slice(0, amount)
-        .map((q) => normalizeQuestion(q, key))
+        .map(q => normalizeQuestion(q, key))
     );
   }
 
   return shuffle(result).slice(0, limit);
 }
 
-// Modo RealSim: simulacro 390 fragmentado por materia
-function buildRealSim() {
+async function buildRealSim() {
   const distribution = {
     lectura_critica: 41,
     matematicas: 50,
@@ -210,49 +232,68 @@ function buildRealSim() {
 
   let result = [];
 
-  Object.keys(distribution).forEach((key) => {
+  for (const key of Object.keys(distribution)) {
     const count = distribution[key];
-    const bank = BANKS[key] || [];
+    let bank = BANKS[key] || [];
+
+    bank = await filterHistory(bank);
+    if (bank.length < count) bank = BANKS[key] || [];
 
     result.push(
       ...shuffle(bank)
         .slice(0, count)
-        .map((q) => normalizeQuestion(q, key))
+        .map(q => normalizeQuestion(q, key))
     );
-  });
+  }
 
   return shuffle(result);
 }
 
-// =====================================
+// ==========================================================
 //  API PÚBLICA
-// =====================================
+// ==========================================================
 export async function getQuizByMode(mode, subject, limit = 10) {
   const m = (mode || "").toLowerCase();
 
   switch (m) {
     case "classic":
-      return await buildClassic(subject, limit);
     case "custom":
-      // Custom utiliza classic con límites personalizados
       return await buildClassic(subject, limit);
     case "full":
       return await buildFull(limit);
     case "azar":
       return await buildAzar(limit);
     case "realsim":
-      return buildRealSim();
+      return await buildRealSim();
     default:
       return await buildClassic(subject, limit);
   }
 }
 
-// Compatibilidad antigua
 export async function getQuestions(subject, count = 10) {
   return getQuizByMode("classic", subject, count);
 }
 
-// Exponer RealSim para pantallas específicas
-export function generateRealSim() {
-  return buildRealSim();
+export async function generateRealSim() {
+  return await buildRealSim();
+}
+
+// ==========================================================
+//  DEBUG / TESTING — obtener pregunta por ID
+// ==========================================================
+export async function getQuestionById(id) {
+  if (!id) return null;
+
+  const all = [
+    ...BANKS.lectura_critica,
+    ...BANKS.matematicas,
+    ...BANKS.ciencias_naturales,
+    ...BANKS.ciencias_sociales,
+    ...BANKS.ingles,
+  ];
+
+  const found = all.find(q => q.id === id);
+  if (!found) return null;
+
+  return normalizeQuestion(found);
 }

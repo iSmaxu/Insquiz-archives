@@ -51,7 +51,7 @@ export default function UpdateOverlay({ currentRouteName }) {
           </Pressable>
 
           <Pressable style={styles.continueBtn} onPress={() => setExpanded(false)}>
-            <Text style={styles.continueText}>Seguir jugando</Text>
+            <Text style={styles.continueText}>Seguir pracitcando</Text>
           </Pressable>
         </View>
       )}

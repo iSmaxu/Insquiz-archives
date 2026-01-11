@@ -1,22 +1,8 @@
-{
-  "xp_rewards": {
-    "correct_answer": 10,
-    "session_bonus": 30,
-    "adaptive_bonus": 30,
-    "realsim_bonus": 250
-  },
 
-  "leveling": {
-    "levels": {
-      "1": 0,
-      "2": 100,
-      "3": 250,
-      "4": 400,
-      "5": 550,
-      "6": 750,
-      "7": 950,
-      "8": 1200,
-      "9": 1500
-    }
-  }
+{
+  "xpPerCorrect": 10,
+  "bonus10": 20,
+  "bonusRealsim": 200,
+  "baseToNext": 100,
+  "incrementPerLevel": 50
 }

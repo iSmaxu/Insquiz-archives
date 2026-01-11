@@ -1,6 +1,10 @@
+// App/screens/QuizScreen.js
 // ==========================================================
-// INSQUIZ - QuizScreen con ScrollWrapper optimizado
-// y carga ASÍNCRONA de preguntas + soporte multi-modo
+// INSQUIZ - QuizScreen v5.3
+// ✅ Compatible con preguntas CLÁSICAS y LEXICAL MATCHING
+// ✅ QuestionCard decide CUÁNDO la pregunta termina
+// ✅ QuizScreen decide QUÉ hacer con el resultado
+// ✅ XP, stats, RealSim y anti doble-tap intactos
 // ==========================================================
 
 import React, { useState, useEffect, useRef } from "react";
@@ -13,15 +17,25 @@ import {
 } from "react-native";
 
 import ScrollWrapper from "../components/ScrollWrapper";
-import { XP_Add, XP_PER_CORRECT } from "../engines/XP_Engine";
-import { getQuestions, getQuizByMode } from "../services/quizService";
+import { registerStats } from "../services/statsService";
 import QuestionCard from "../components/QuestionCard";
+
+import { useInstructor } from "../instructor/InstructorProvider";
+import { InstructorEvents } from "../instructor/InstructorEvents";
+
+import { getQuestions, getQuizByMode } from "../services/quizService";
 import { useOffline } from "../context/OfflineContext";
 import { saveAttempt } from "../store/AttemptStore";
 
-export default function QuizScreen({ route, navigation }) {
-  const { subject, count, subjectLabel, mode } = route.params;
+import {
+  XP_Add,
+  XP_PER_CORRECT,
+  XP_SESSION_BONUS_10,
+  XP_SESSION_BONUS_REALSIM,
+} from "../engines/XP_Engine";
 
+export default function QuizScreen({ route, navigation }) {
+  const { subject, count, subjectLabel, mode } = route.params || {};
   const { setQuizActive } = useOffline();
 
   const [questions, setQuestions] = useState([]);
@@ -29,41 +43,41 @@ export default function QuizScreen({ route, navigation }) {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // ✅ NUEVO: preguntas respondidas (para revisión)
-  const [answeredQuestions, setAnsweredQuestions] = useState([]);
 
-  // ✅ NUEVO: ref para evitar desfase de estado al finalizar
+
   const answeredRef = useRef([]);
+  const lockRef = useRef(false); // anti doble evento
 
-  // ==========================================================
-  // 🔐 DECLARAR ESTADO DE QUIZ (CRÍTICO)
-  // ==========================================================
+  // ----------------------------------------------------------
+  // Declarar estado de quiz activo
+  // ----------------------------------------------------------
   useEffect(() => {
-    setQuizActive(true); // 🟢 Entró al quiz
+    setQuizActive(true);
+    return () => setQuizActive(false);
+  }, [setQuizActive]);
 
-    return () => {
-      setQuizActive(false); // 🔴 Salió del quiz (SIEMPRE)
-    };
-  }, []);
-
-  // ==========================================================
-  // CARGA DE PREGUNTAS
-  // ==========================================================
+  // ----------------------------------------------------------
+  // Carga de preguntas
+  // ----------------------------------------------------------
   useEffect(() => {
     let isMounted = true;
 
     async function load() {
-      try {
-        // 1️⃣ Preguntas inyectadas (RealSim / custom)
-        if (route.params?.questions) {
-          if (isMounted) {
-            setQuestions(route.params.questions);
-            setLoading(false);
+      setLoading(true);
 
-            // ✅ reset del intento al cargar nuevas preguntas
-            setAnsweredQuestions([]);
-            answeredRef.current = [];
-          }
+      try {
+        // 🔹 Preguntas inyectadas (RealSim / custom)
+        if (route.params?.questions) {
+          if (!isMounted) return;
+
+          const arr = Array.isArray(route.params.questions)
+            ? route.params.questions
+            : [];
+
+          setQuestions(arr);
+          setIndex(0);
+          setScore(0);
+          answeredRef.current = [];
           return;
         }
 
@@ -75,16 +89,14 @@ export default function QuizScreen({ route, navigation }) {
           qs = await getQuestions(subject, count || 10);
         }
 
-        if (isMounted) {
-          const arr = Array.isArray(qs) ? qs : [];
-          setQuestions(arr);
+        if (!isMounted) return;
 
-          // ✅ reset del intento al cargar nuevas preguntas
-          setAnsweredQuestions([]);
-          answeredRef.current = [];
-        }
+        setQuestions(Array.isArray(qs) ? qs : []);
+        setIndex(0);
+        setScore(0);
+        answeredRef.current = [];
       } catch (e) {
-        console.log("❌ Error cargando preguntas en QuizScreen:", e);
+        console.log("❌ Error cargando preguntas:", e);
         if (isMounted) setQuestions([]);
       } finally {
         if (isMounted) setLoading(false);
@@ -92,12 +104,14 @@ export default function QuizScreen({ route, navigation }) {
     }
 
     load();
-
     return () => {
       isMounted = false;
     };
   }, [route.params, subject, count, mode]);
 
+  // ----------------------------------------------------------
+  // Loading / empty
+  // ----------------------------------------------------------
   if (loading) {
     return (
       <View style={styles.center}>
@@ -117,58 +131,115 @@ export default function QuizScreen({ route, navigation }) {
 
   const current = questions[index];
 
-  async function handleNext({ wasCorrect, letter }) {
-    let nextScore = score;
+  // ----------------------------------------------------------
+  // 🔥 Evento FINAL de una pregunta
+  // (clásica o lexical)
+  // ----------------------------------------------------------
+  async function handleNext(payload = {}) {
+    if (lockRef.current) return;
+    lockRef.current = true;
 
-    if (wasCorrect) {
-      nextScore = score + 1;
-      setScore(nextScore);
-      await XP_Add(XP_PER_CORRECT);
-    }
+    try {
+      // 🔹 Normalización defensiva
+      const userLetter = (payload.letter || "A")
+        .toString()
+        .trim()
+        .toUpperCase();
 
-    // ✅ NUEVO: registrar pregunta respondida (con userAnswer)
-    const answered = {
-      ...questions[index],
-      userAnswer: (letter || "").toString().trim().toUpperCase(),
-    };
+      const correctLetter = (current?.correct_letter || current?.answer || "A")
+        .toString()
+        .trim()
+        .toUpperCase();
 
-    // Guardar en ref (sin depender del setState)
-    answeredRef.current = [...answeredRef.current, answered];
+      const isCorrect = userLetter === correctLetter;
 
-    // Guardar en state (por si quieres usarlo en UI/analytics después)
-    setAnsweredQuestions(prev => [...prev, answered]);
+      let nextScore = score;
 
-    if (index === questions.length - 1) {
-  const attempt = {
-    id: `ATT-${Date.now()}`,
-    mode,
-    area: subjectLabel,
-    createdAt: Date.now(),
-    questions: answeredRef.current, // 🔥 incluye userAnswer
-    stats: {
-      total: questions.length,
-      correct: nextScore,
-      incorrect: questions.length - nextScore,
-    },
-  };
+      // 🎯 XP por pregunta
+      if (isCorrect) {
+        
+        nextScore = score + 1;
 
-  await saveAttempt(attempt);
+        setScore(nextScore);
+        await XP_Add(XP_PER_CORRECT, { correct: true });
+      } else {
+        await XP_Add(0, { correct: false });
+      }
 
-  navigation.replace("ResultScreen", {
-    score: nextScore,
-    total: questions.length,
-    area: subjectLabel,
-    mode,
-  });
-} else {
-      setIndex(i => i + 1);
+      // 📌 Guardar pregunta respondida
+      const answered = {
+        ...current,
+        userAnswer: userLetter,
+        wasCorrect: isCorrect,
+      };
+
+      answeredRef.current = [...answeredRef.current, answered];
+
+      const isLast = index === questions.length - 1;
+
+      // ------------------------------------------------------
+      // 🔚 Última pregunta → cerrar intento
+      // ------------------------------------------------------
+      if (isLast) {
+        const attempt = {
+          id: `ATT-${Date.now()}`,
+          mode: mode || "classic",
+          area: subjectLabel || subject || "Quiz",
+          createdAt: Date.now(),
+          questions: answeredRef.current,
+          stats: {
+            total: questions.length,
+            correct: nextScore,
+            incorrect: questions.length - nextScore,
+          },
+        };
+
+        await saveAttempt(attempt);
+
+        await registerStats({
+          mode: mode || "practice",
+          subject: subject || "general",
+          correct: nextScore,
+          total: questions.length,
+          questions: answeredRef.current,
+        });
+
+        // 🎁 Bonus de sesión
+        const bonus =
+          (mode || "").toLowerCase() === "realsim"
+            ? XP_SESSION_BONUS_REALSIM
+            : XP_SESSION_BONUS_10;
+
+        await XP_Add(bonus);
+
+        navigation.replace("ResultScreen", {
+          score: nextScore,
+          total: questions.length,
+          area: subjectLabel || subject,
+          mode: mode || "classic",
+          attemptId: attempt.id,
+        });
+      } else {
+        // 👉 Siguiente pregunta
+        setIndex((i) => i + 1);
+      }
+    } finally {
+      setTimeout(() => {
+        lockRef.current = false;
+      }, 150);
     }
   }
 
+  // ----------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------
   return (
     <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
       <ScrollWrapper style={{ paddingHorizontal: 18, paddingTop: 50 }}>
-        <Text style={styles.header}>{subjectLabel}</Text>
+        <Text style={styles.header}>
+          {subjectLabel || subject}
+        </Text>
+
         <Text style={styles.progress}>
           Pregunta {index + 1} de {questions.length}
         </Text>
@@ -190,6 +261,10 @@ export default function QuizScreen({ route, navigation }) {
     </View>
   );
 }
+
+// ==========================================================
+// Styles
+// ==========================================================
 
 const styles = StyleSheet.create({
   header: {

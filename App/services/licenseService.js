@@ -1,4 +1,3 @@
-// App/services/LicenseService.js
 import { db } from "../firebase/firebaseConfig";
 import { ref, get, update } from "firebase/database";
 import { getDeviceId } from "./DeviceIdService";
@@ -7,10 +6,10 @@ import * as Device from "expo-device";
 
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 
-/**
- * Valida licencia y registra/migra el dispositivo.
- * Compatible con datos legacy (devices: true).
- */
+// 🔐 IDENTIDAD DE LA APP
+// Cambiar SOLO este valor en cada app
+const APP_ID = "insquiz"; // o "didactiq"
+
 export async function validateLicense(licenseKey, fullName = null) {
   try {
     const deviceId = await getDeviceId();
@@ -26,12 +25,21 @@ export async function validateLicense(licenseKey, fullName = null) {
 
     const lic = snap.val();
 
-    // 2️⃣ Inactiva
+    // 2️⃣ Validación por app (con soporte LEGACY)
+    if (
+      lic.app &&               // tiene app definida
+      lic.app !== "legacy" &&  // no es universal
+      lic.app !== APP_ID       // no corresponde a esta app
+    ) {
+      return { ok: false, reason: "LICENSE_APP_MISMATCH" };
+    }
+
+    // 3️⃣ Inactiva
     if (!lic.active) {
       return { ok: false, reason: "LICENSE_INACTIVE" };
     }
 
-    // 3️⃣ Expirada
+    // 4️⃣ Expirada
     if (
       lic.expiresAt !== "indefinida" &&
       typeof lic.expiresAt === "number" &&
@@ -40,18 +48,21 @@ export async function validateLicense(licenseKey, fullName = null) {
       return { ok: false, reason: "LICENSE_EXPIRED" };
     }
 
-    // 4️⃣ Dispositivos
     const devices = lic.devices || {};
     const maxDevices = lic.maxDevices || 1;
 
-    // 4.1️⃣ Ya existe (legacy o nuevo)
+    // 5️⃣ Dispositivo ya registrado
     if (devices[deviceId]) {
-      const legacy = devices[deviceId] === true;
+      const legacyDevice = devices[deviceId] === true;
 
-      const previousLastSeen = legacy ? 0 : devices[deviceId].lastSeen || 0;
-      const shouldUpdateLastSeen = now - previousLastSeen >= THREE_HOURS;
+      const previousLastSeen = legacyDevice
+        ? 0
+        : devices[deviceId].lastSeen || 0;
 
-      const deviceData = legacy
+      const shouldUpdateLastSeen =
+        now - previousLastSeen >= THREE_HOURS;
+
+      const deviceData = legacyDevice
         ? {
             fullName,
             firstSeen: now,
@@ -65,7 +76,7 @@ export async function validateLicense(licenseKey, fullName = null) {
             fullName: fullName || devices[deviceId].fullName || null,
           };
 
-      if (legacy || shouldUpdateLastSeen || fullName) {
+      if (legacyDevice || shouldUpdateLastSeen || fullName) {
         await update(
           ref(db, `licenses/${licenseKey}/devices/${deviceId}`),
           deviceData
@@ -75,24 +86,22 @@ export async function validateLicense(licenseKey, fullName = null) {
       return { ok: true, reason: "OK_EXISTING_DEVICE" };
     }
 
-    // 4.2️⃣ Exceso de dispositivos
+    // 6️⃣ Límite de dispositivos alcanzado
     if (Object.keys(devices).length >= maxDevices) {
       return { ok: false, reason: "MAX_DEVICES_REACHED" };
     }
 
-    // 5️⃣ Registrar nuevo dispositivo
-    const deviceData = {
-      fullName,
-      firstSeen: now,
-      lastSeen: now,
-      platform: Platform.OS,
-      model: Device.modelName || "unknown",
-    };
-
+    // 7️⃣ Registrar nuevo dispositivo
     await update(licenseRef, {
       devices: {
         ...devices,
-        [deviceId]: deviceData,
+        [deviceId]: {
+          fullName,
+          firstSeen: now,
+          lastSeen: now,
+          platform: Platform.OS,
+          model: Device.modelName || "unknown",
+        },
       },
     });
 

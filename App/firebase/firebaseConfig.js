@@ -21,13 +21,14 @@ import { getDatabase } from "firebase/database";
 // Configuración base (idéntica a tu versión anterior)
 // ==========================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyCGFQPk4idrDgFpl1f0ixKF7D63vLYjZGA",
-  authDomain: "insquiz-admin.firebaseapp.com",
-  databaseURL: "https://insquiz-admin-default-rtdb.firebaseio.com",
-  projectId: "insquiz-admin",
-  storageBucket: "insquiz-admin.firebasestorage.app",
-  messagingSenderId: "236979447253",
-  appId: "1:236979447253:web:08c9075dbfa1183fa9095c",
+  apiKey: "AIzaSyBfr6nIx2amaUgab0pBbm7Jw5Smklc8ACg",
+  authDomain: "ivan-perezt.firebaseapp.com",
+  databaseURL: "https://ivan-perezt-default-rtdb.firebaseio.com",
+  projectId: "ivan-perezt",
+  storageBucket: "ivan-perezt.firebasestorage.app",
+  messagingSenderId: "322118361278",
+  appId: "1:322118361278:web:31bc14c5196e28b30abeef",
+  measurementId: "G-52PX20LC7X"
 };
 
 // ==========================================================
